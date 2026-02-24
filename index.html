@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Label QC Approval v3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .scanner-line {
+            width: 100%; height: 2px; background: #10B981; position: absolute;
+            box-shadow: 0 0 10px #10B981; animation: scan 2s infinite linear; display: none;
+        }
+        @keyframes scan { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-gray-800">
+
+    <div id="app" class="h-full w-full flex flex-col relative"></div>
+
+    <script>
+        // ==========================================
+        // STATE MANAGEMENT
+        // ==========================================
+        let currentUser = null; 
+        const operatorList = ["สมชาย (Line 1)", "สมศรี (Line 1)", "วิชัย (Line 2)", "มานะ (Line 3)"];
+        let dbJobs = []; // จะถูกเติมจาก Google Sheet
+        let dbTickets = []; // จะถูกเติมจาก Google Sheet
+        
+        let currentSelectedJob = null;
+        let stream = null;
+        let capturedImageBase64 = null;
+        let verificationResult = null; 
+        let isProcessingOCR = false;
+
+        const appDiv = document.getElementById('app');
+
+        function render() {
+            if (!currentUser) renderLogin();
+            else renderMainApp();
+        }
+
+        // --- LOGIN VIEW ---
+        function renderLogin() {
+            let opOptions = operatorList.map(name => `<option value="${name}">${name}</option>`).join('');
+            appDiv.innerHTML = `
+                <div class="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-800 p-4 fade-in">
+                    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
+                        <div class="mb-6">
+                            <i class="fa-solid fa-shield-check text-5xl text-blue-600 mb-2"></i>
+                            <h1 class="text-2xl font-bold text-gray-800">Label QC System</h1>
+                            <p class="text-sm text-gray-500">ระบบตรวจสอบฉลากอัจฉริยะ (AI OCR)</p>
+                        </div>
+                        <div class="space-y-4 text-left">
+                            <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                <label class="block text-sm font-bold text-blue-800 mb-2"><i class="fa-solid fa-user-gear"></i> ผู้ปฏิบัติงาน (Operator)</label>
+                                <select id="op-selector" class="w-full p-2 border rounded mb-2">
+                                    <option value="">-- เลือกชื่อพนักงาน --</option>
+                                    ${opOptions}
+                                </select>
+                                <button onclick="loginOp()" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow transition">เข้าสู่ระบบ Operator</button>
+                            </div>
+                            <div class="border-t border-gray-200 my-4"></div>
+                            <button onclick="login('qc', 'Wichai (QC)')" class="w-full py-3 bg-green-50 hover:bg-green-100 text-green-700 font-semibold rounded-lg border border-green-200 transition">
+                                <i class="fa-solid fa-magnifying-glass-chart mr-2"></i> เข้าสู่ระบบ ผู้ตรวจสอบ (QC)
+                            </button>
+                            <button onclick="login('supervisor', 'Manager (Sup)')" class="w-full py-3 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold rounded-lg border border-purple-200 transition">
+                                <i class="fa-solid fa-user-tie mr-2"></i> เข้าสู่ระบบ หัวหน้างาน (Supervisor)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function loginOp() {
+            const name = document.getElementById('op-selector').value;
+            if (!name) return alert("กรุณาเลือกชื่อพนักงานก่อนเข้าสู่ระบบ");
+            login('operator', name);
+        }
+
+        function login(role, name) {
+            currentUser = { role, name };
+            currentTab = role === 'operator' ? 'scan' : 'inbox';
+            currentSelectedJob = null; 
+            
+            // โหลดข้อมูลตั้งต้นจาก Google Sheet ทันทีที่ล็อกอิน
+            fetchInitialData();
+            render();
+        }
+
+        function logout() { currentUser = null; stopCamera(); render(); }
+
+        // --- FETCH DATA FROM GOOGLE SCRIPT ---
+        function fetchInitialData() {
+            // โหลด Job Orders ที่ยังไม่เสร็จ (Progress < 100)
+            google.script.run.withSuccessHandler(function(data) {
+                dbJobs = data;
+                if(currentTab === 'scan' && !currentSelectedJob) renderMainApp();
+            }).getActiveJobsForQC();
+
+            // โหลด Inbox Tickets
+            fetchTickets();
+        }
+
+        function fetchTickets() {
+            google.script.run.withSuccessHandler(function(data) {
+                dbTickets = data;
+                if(currentTab === 'inbox') renderMainApp();
+            }).getQCTickets();
+        }
+
+        // --- MAIN APP SHELL ---
+        let currentTab = 'inbox'; 
+        let selectedTicket = null;
+
+        function renderMainApp() {
+            let pendingCount = dbTickets.filter(t => t.status === 'pending').length;
+
+            appDiv.innerHTML = `
+                <header class="bg-white shadow-sm z-10 px-4 py-3 flex justify-between items-center">
+                    <div class="flex items-center">
+                        <i class="fa-solid fa-shield-check text-blue-600 text-xl mr-2"></i>
+                        <span class="font-bold text-lg hidden sm:inline">Label QC</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button onclick="fetchTickets()" class="text-blue-500 hover:text-blue-700"><i class="fa-solid fa-rotate"></i></button>
+                        <div class="text-right">
+                            <div class="font-semibold text-sm text-blue-800">${currentUser.name}</div>
+                            <div class="text-xs text-gray-500 uppercase">${currentUser.role} Workspace</div>
+                        </div>
+                        <button onclick="logout()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-sign-out-alt text-xl"></i></button>
+                    </div>
+                </header>
+                <main class="flex-1 overflow-y-auto bg-gray-100 p-4 relative" id="main-content"></main>
+                <nav class="bg-white border-t flex justify-around p-2 pb-safe">
+                    ${currentUser.role === 'operator' ? `
+                    <button onclick="switchTab('scan')" class="flex flex-col items-center p-2 w-full ${currentTab === 'scan' ? 'text-blue-600' : 'text-gray-400'}">
+                        <i class="fa-solid fa-camera text-xl mb-1"></i><span class="text-xs font-medium">ส่งตรวจ Label</span>
+                    </button>
+                    ` : ''}
+                    <button onclick="switchTab('inbox')" class="flex flex-col items-center p-2 w-full relative ${currentTab === 'inbox' ? 'text-blue-600' : 'text-gray-400'}">
+                        <div class="relative">
+                            <i class="fa-solid fa-inbox text-xl mb-1"></i>
+                            ${currentUser.role !== 'operator' && pendingCount > 0 ? `<span class="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] px-1.5 rounded-full">${pendingCount}</span>` : ''}
+                        </div>
+                        <span class="text-xs font-medium">กล่องข้อความ</span>
+                    </button>
+                </nav>
+            `;
+            renderContent();
+        }
+
+        function switchTab(tab) {
+            currentTab = tab; selectedTicket = null;
+            if (tab !== 'scan') stopCamera();
+            renderMainApp();
+        }
+
+        function renderContent() {
+            const contentDiv = document.getElementById('main-content');
+            if (selectedTicket) renderTicketDetail(contentDiv);
+            else if (currentTab === 'scan') renderScanView(contentDiv);
+            else if (currentTab === 'inbox') renderInboxView(contentDiv);
+        }
+
+        // --- SCAN & CAMERA VIEW (OPERATOR) ---
+        function renderScanView(container) {
+            if (!currentSelectedJob) {
+                let jobOptions = dbJobs.map(j => `<option value="${j.job}">${j.job} (Model: ${j.targetModel})</option>`).join('');
+                if(dbJobs.length === 0) jobOptions = `<option value="">กำลังโหลดแผนการผลิต...</option>`;
+
+                container.innerHTML = `
+                    <div class="max-w-md mx-auto fade-in mt-10">
+                        <div class="bg-white rounded-xl shadow p-6 border-t-4 border-blue-500">
+                            <h2 class="font-bold text-lg text-gray-800 mb-4"><i class="fa-solid fa-clipboard-list text-blue-500 mr-2"></i> ขั้นตอนที่ 1: เลือก Job Order</h2>
+                            <p class="text-sm text-gray-500 mb-2">เลือก Job Order ที่กำลังผลิต เพื่อดึงข้อมูลตั้งต้น</p>
+                            <select id="job-selector" class="w-full p-3 border rounded-lg bg-gray-50 text-lg font-bold mb-6">
+                                <option value="">-- เลือก Job Order --</option>
+                                ${jobOptions}
+                            </select>
+                            <button onclick="selectJobAndStartCamera()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition">
+                                ยืนยันและเริ่มถ่ายรูป <i class="fa-solid fa-arrow-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            const targetModel = dbJobs.find(j => j.job === currentSelectedJob).targetModel;
+
+            container.innerHTML = `
+                <div class="max-w-md mx-auto fade-in h-full flex flex-col pb-4">
+                    <div class="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
+                        <div class="p-3 bg-blue-50 border-b flex justify-between items-center">
+                            <div>
+                                <span class="text-xs text-gray-500 block">Job ปัจจุบัน:</span>
+                                <span class="font-bold text-blue-800 text-sm">${currentSelectedJob} (${targetModel})</span>
+                            </div>
+                            <button onclick="changeJob()" class="text-xs text-blue-600 underline">เปลี่ยน Job</button>
+                        </div>
+                        
+                        <div class="relative bg-black flex-[0.8] flex items-center justify-center overflow-hidden" id="camera-container">
+                            ${!capturedImageBase64 ? `
+                                <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+                                <div class="scanner-line" id="scanner-line"></div>
+                                <div class="absolute inset-0 border-[40px] border-black/40 pointer-events-none"></div>
+                            ` : `
+                                <img src="${capturedImageBase64}" class="w-full h-full object-contain bg-gray-900" />
+                            `}
+                        </div>
+
+                        <div class="p-4 bg-white flex-1 overflow-y-auto" id="scan-controls">
+                            ${isProcessingOCR ? `
+                                <div class="h-full flex flex-col justify-center items-center">
+                                    <div class="loader mb-3"></div>
+                                    <p class="text-blue-600 font-bold">AI กำลังประมวลผลอ่านข้อความ...</p>
+                                    <p class="text-xs text-gray-500">ผ่าน Google Drive API</p>
+                                </div>
+                            ` : !capturedImageBase64 ? `
+                                <div class="h-full flex flex-col justify-center items-center">
+                                    <p class="text-sm text-center text-gray-500 mb-4">จัด Label ให้อยู่ในกรอบแล้วกดถ่ายรูป</p>
+                                    <button onclick="captureImage()" class="w-16 h-16 rounded-full bg-blue-600 border-4 border-blue-200 shadow-lg active:scale-95 transition"></button>
+                                </div>
+                            ` : `
+                                <div class="space-y-3">
+                                    <div class="flex justify-between items-center">
+                                        <h3 class="font-bold text-sm text-gray-700"><i class="fa-solid fa-robot text-blue-500"></i> ข้อมูลที่ AI สกัดได้ (OCR)</h3>
+                                        <button onclick="retakePhoto()" class="text-xs text-red-500 border border-red-500 px-2 py-1 rounded hover:bg-red-50"><i class="fa-solid fa-rotate-right"></i> ถ่ายใหม่</button>
+                                    </div>
+                                    <div class="grid grid-cols-1 gap-2 text-sm bg-gray-50 p-3 rounded border">
+                                        <div>
+                                            <label class="text-xs text-gray-500">1. Model</label>
+                                            <input type="text" id="ocr-model" class="w-full border rounded p-1.5 font-bold text-blue-800" value="">
+                                        </div>
+                                        <div>
+                                            <label class="text-xs text-gray-500">2. Lot (TH YY WW DD shift line)</label>
+                                            <input type="text" id="ocr-lot" class="w-full border rounded p-1.5 font-bold" value="">
+                                        </div>
+                                        <div>
+                                            <label class="text-xs text-gray-500">3. วันที่ผลิต (รูปแบบ พ.ศ.)</label>
+                                            <input type="text" id="ocr-date" class="w-full border rounded p-1.5 font-bold" value="">
+                                        </div>
+                                    </div>
+                                    ${!verificationResult ? `
+                                        <button onclick="runSmartVerification()" class="w-full py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg shadow transition mt-2">
+                                            <i class="fa-solid fa-magnifying-glass-check mr-2"></i> ตรวจสอบความถูกต้อง
+                                        </button>
+                                    ` : `
+                                        <div class="mt-2 p-3 rounded-lg border ${verificationResult.isPass ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
+                                            <h4 class="font-bold text-sm mb-2 ${verificationResult.isPass ? 'text-green-700' : 'text-red-700'}">
+                                                ผลตรวจสอบ: ${verificationResult.isPass ? 'ผ่าน (PASS)' : 'พบข้อผิดพลาด (NG)'}
+                                            </h4>
+                                            <ul class="text-xs space-y-1">${verificationResult.messages.map(m => `<li>${m}</li>`).join('')}</ul>
+                                        </div>
+                                        <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-2 disabled:opacity-50 disabled:cursor-not-allowed" ${!verificationResult.isPass ? 'disabled' : ''} id="submit-btn">
+                                            <i class="fa-solid fa-paper-plane mr-2"></i> ส่งให้ QC ตรวจสอบ
+                                        </button>
+                                    `}
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if (currentSelectedJob && !capturedImageBase64 && !isProcessingOCR) startCamera();
+        }
+
+        function selectJobAndStartCamera() {
+            const job = document.getElementById('job-selector').value;
+            if (!job) return alert("กรุณาเลือก Job Order");
+            currentSelectedJob = job; renderMainApp();
+        }
+
+        function changeJob() { currentSelectedJob = null; capturedImageBase64 = null; verificationResult = null; stopCamera(); renderMainApp(); }
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                const video = document.getElementById('video');
+                if(video) video.srcObject = stream;
+            } catch (err) { console.error("Camera error", err); }
+        }
+
+        function stopCamera() {
+            if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; }
+        }
+
+        // ==========================================
+        // CAPTURE & OCR PROCESS
+        // ==========================================
+        function captureImage() {
+            const video = document.getElementById('video');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            document.getElementById('scanner-line').style.display = 'block';
+            isProcessingOCR = true;
+            capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.6); // ลดขนาดภาพก่อนส่ง
+            stopCamera();
+            renderMainApp();
+
+            // ส่งรูปไปให้ Google Apps Script ประมวลผล OCR
+            const base64Data = capturedImageBase64.split(',')[1];
+            google.script.run.withSuccessHandler(handleOCRResult).withFailureHandler(function(err){
+                alert("การประมวลผล OCR ล้มเหลว: " + err.message);
+                isProcessingOCR = false;
+                capturedImageBase64 = null;
+                renderMainApp();
+            }).performOCRFromImage(base64Data);
+        }
+
+        function handleOCRResult(rawText) {
+            isProcessingOCR = false;
+            
+            // Logic สกัดข้อความที่ได้จากภาพ
+            const targetModel = dbJobs.find(j => j.job === currentSelectedJob).targetModel;
+            let extModel = "", extLot = "", extDate = "";
+
+            // 1. หา Model (เช็คว่ามีชื่อ Model ที่ต้องทำอยู่ในข้อความไหม หรือหาคำยาวๆ)
+            if (rawText.includes(targetModel)) {
+                extModel = targetModel;
+            } else {
+                let mMatch = rawText.match(/[A-Z0-9-]{6,15}/);
+                if(mMatch) extModel = mMatch[0];
+            }
+
+            // 2. หา Lot (TH 26 04 7 A 5)
+            let lotMatch = rawText.match(/TH\s+\d{2}\s+\d{2}\s+\d\s+[a-zA-Z]\s+\d/i);
+            if(lotMatch) extLot = lotMatch[0].toUpperCase();
+
+            // 3. หาวันที่ผลิต (dd/mm/yyyy)
+            let dateMatch = rawText.match(/\d{2}\/\d{2}\/\d{4}/);
+            if(dateMatch) extDate = dateMatch[0];
+
+            renderMainApp(); // รีเฟรชเพื่อโชว์ฟอร์ม
+
+            // เติมค่าลง Input หลังจาก Render เสร็จ
+            setTimeout(() => {
+                if(document.getElementById('ocr-model')) document.getElementById('ocr-model').value = extModel;
+                if(document.getElementById('ocr-lot')) document.getElementById('ocr-lot').value = extLot;
+                if(document.getElementById('ocr-date')) document.getElementById('ocr-date').value = extDate;
+            }, 100);
+        }
+
+        function retakePhoto() {
+            capturedImageBase64 = null; verificationResult = null; isProcessingOCR = false; renderMainApp();
+        }
+
+        // ==========================================
+        // SMART VERIFICATION LOGIC 
+        // ==========================================
+        function runSmartVerification() {
+            const model = document.getElementById('ocr-model').value.trim();
+            const lot = document.getElementById('ocr-lot').value.trim();
+            const dateStr = document.getElementById('ocr-date').value.trim();
+            const targetModel = dbJobs.find(j => j.job === currentSelectedJob).targetModel;
+            
+            let isPass = true;
+            let messages = [];
+
+            if (model === targetModel) {
+                messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> Model ตรงกับ Plan (${targetModel})</span>`);
+            } else {
+                messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> Model ผิด! (ต้องการ ${targetModel})</span>`);
+                isPass = false;
+            }
+
+            let bYear = 0;
+            try {
+                const dateParts = dateStr.split('/');
+                bYear = parseInt(dateParts[2]);
+                if (bYear < 2500 || bYear > 2600 || dateParts[0].length !== 2) throw new Error();
+                messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> วันที่อยู่ในรูปแบบ พ.ศ. (${bYear})</span>`);
+            } catch (e) {
+                messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> วันที่ผลิตผิดรูปแบบ (DD/MM/YYYY พ.ศ.)</span>`);
+                isPass = false;
+            }
+
+            const lotParts = lot.split(' ');
+            if (lotParts.length >= 6 && lotParts[0] === 'TH') {
+                const lotYear = parseInt(lotParts[1]); 
+                if (bYear > 0) {
+                    const expectedLotYear = (bYear - 543) % 100; 
+                    if (lotYear === expectedLotYear) {
+                        messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> ปีใน Lot (${lotYear}) ตรงกับ พ.ศ. (${bYear})</span>`);
+                    } else {
+                        messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> ปีใน Lot (${lotYear}) ขัดแย้งกับปีผลิต พ.ศ. (${bYear})</span>`);
+                        isPass = false;
+                    }
+                }
+            } else {
+                messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> Lot No ผิดฟอร์แมต</span>`);
+                isPass = false;
+            }
+
+            verificationResult = { isPass, messages };
+            renderMainApp();
+        }
+
+        function submitToQC() {
+            document.getElementById('submit-btn').innerHTML = `<div class="loader inline-block align-middle mr-2" style="width:15px;height:15px;border-width:2px;"></div> กำลังบันทึก...`;
+            document.getElementById('submit-btn').disabled = true;
+
+            const newTicket = {
+                jobOrder: currentSelectedJob,
+                model: document.getElementById('ocr-model').value,
+                lot: document.getElementById('ocr-lot').value,
+                date: document.getElementById('ocr-date').value,
+                operator: currentUser.name,
+                image: capturedImageBase64
+            };
+
+            // ส่งข้อมูลบันทึกลง Google Sheet
+            google.script.run.withSuccessHandler(function(res) {
+                alert(`ส่งเรื่องให้ QC ตรวจสอบเรียบร้อยแล้ว (Ref: ${res.id})`);
+                capturedImageBase64 = null; verificationResult = null;
+                fetchTickets(); // โหลดข้อมูลใหม่
+                switchTab('inbox');
+            }).withFailureHandler(function(err){
+                alert("Error: " + err.message);
+                document.getElementById('submit-btn').disabled = false;
+            }).saveQCTicket(newTicket);
+        }
+
+        // --- INBOX VIEW ---
+        function renderInboxView(container) {
+            let displayTickets = dbTickets;
+            if (currentUser.role === 'operator') displayTickets = dbTickets.filter(t => t.operator === currentUser.name);
+            else if (currentUser.role === 'qc') displayTickets = dbTickets.sort((a, b) => (a.status === 'pending' ? -1 : 1));
+
+            let html = `<div class="max-w-2xl mx-auto fade-in"><h2 class="font-bold text-gray-700 mb-4 text-lg">กล่องข้อความ (Inbox)</h2><div class="space-y-3 pb-20">`;
+
+            if (displayTickets.length === 0) html += `<div class="text-center text-gray-500 py-10 bg-white rounded-xl shadow-sm">ไม่มีรายการในระบบ</div>`;
+
+            displayTickets.forEach(t => {
+                let statusColor = t.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : 
+                                  t.status === 'approved' ? 'bg-green-100 text-green-800 border-green-300' : 'bg-red-100 text-red-800 border-red-300';
+                let statusIcon = t.status === 'pending' ? '<i class="fa-solid fa-clock"></i> รอ QC ตรวจ' : 
+                                 t.status === 'approved' ? '<i class="fa-solid fa-check-circle"></i> ผ่าน' : '<i class="fa-solid fa-times-circle"></i> ปฏิเสธ';
+
+                html += `
+                    <div onclick="openTicket('${t.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${t.status === 'pending' ? 'border-yellow-500' : t.status === 'approved' ? 'border-green-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3">
+                        <div class="w-16 h-16 bg-black rounded overflow-hidden flex-shrink-0">
+                            <img src="${t.imageUrl || 'https://via.placeholder.com/150?text=No+Image'}" class="w-full h-full object-cover opacity-80">
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-start">
+                                <span class="font-bold text-blue-800 text-sm">${t.jobOrder}</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full border ${statusColor} font-medium">${statusIcon}</span>
+                            </div>
+                            <div class="text-sm font-bold text-gray-800 mt-1">Model: ${t.model}</div>
+                            <div class="text-[10px] text-gray-500 mt-1">Ref: ${t.id} • ส่งโดย: ${t.operator}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div></div>`;
+            container.innerHTML = html;
+        }
+
+        // --- TICKET DETAIL (APPROVAL) VIEW ---
+        function openTicket(id) { selectedTicket = dbTickets.find(t => t.id === id); renderMainApp(); }
+        function closeTicket() { selectedTicket = null; renderMainApp(); }
+
+        function processTicket(action) {
+            let reason = "";
+            if (action === 'rejected') {
+                reason = prompt("ระบุสาเหตุที่ปฏิเสธ (เช่น รูปไม่ชัด, สีกล่องผิด):");
+                if (!reason) return;
+            }
+            
+            // อัปเดตไปยัง Sheet
+            google.script.run.withSuccessHandler(function(res) {
+                alert(`รายการถูกบันทึกเป็น ${action.toUpperCase()} เรียบร้อยแล้ว`);
+                fetchTickets();
+                closeTicket();
+            }).updateQCTicketStatus(selectedTicket.id, action, currentUser.name, reason);
+        }
+
+        function renderTicketDetail(container) {
+            let t = selectedTicket;
+            let statusColor = t.status === 'pending' ? 'text-yellow-600' : t.status === 'approved' ? 'text-green-600' : 'text-red-600';
+
+            container.innerHTML = `
+                <div class="max-w-2xl mx-auto fade-in pb-20">
+                    <button onclick="closeTicket()" class="mb-4 text-blue-600 hover:text-blue-800 font-medium">
+                        <i class="fa-solid fa-arrow-left mr-1"></i> กลับไปกล่องข้อความ
+                    </button>
+                    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                        <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+                            <div><h2 class="font-bold text-lg text-blue-800">${t.jobOrder}</h2><span class="text-xs text-gray-500">ID: ${t.id}</span></div>
+                            <span class="font-bold ${statusColor} uppercase text-sm">${t.status}</span>
+                        </div>
+                        <div class="p-4 bg-black flex justify-center">
+                            <img src="${t.imageUrl || ''}" class="max-h-80 object-contain rounded border border-gray-700">
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                <h3 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1">ข้อมูลที่สกัดได้</h3>
+                                <div class="grid grid-cols-3 gap-2 text-sm">
+                                    <div class="text-gray-500">Model:</div><div class="col-span-2 font-bold text-gray-800">${t.model}</div>
+                                    <div class="text-gray-500 mt-1">Lot No:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.lot}</div>
+                                    <div class="text-gray-500 mt-1">วันที่ผลิต:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.date}</div>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-xs text-gray-500 border-t pt-4">
+                                <div><span class="block font-medium">ส่งเรื่อง (OP):</span>${t.operator} <br> ${t.timestamp}</div>
+                                ${t.status !== 'pending' ? `<div><span class="block font-medium">ตรวจสอบ (QC):</span>${t.qc} <br> ${t.actionTime}</div>` : ''}
+                            </div>
+                            ${t.rejectReason ? `<div class="bg-red-50 text-red-700 p-3 rounded border border-red-200 text-sm mt-3"><strong>สาเหตุที่ปฏิเสธ:</strong> ${t.rejectReason}</div>` : ''}
+
+                            ${currentUser.role === 'qc' && t.status === 'pending' ? `
+                            <div class="flex gap-3 pt-4 border-t mt-4">
+                                <button onclick="processTicket('approved')" class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition">
+                                    <i class="fa-solid fa-check-circle mr-2"></i> อนุมัติ (PASS)
+                                </button>
+                                <button onclick="processTicket('rejected')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition">
+                                    <i class="fa-solid fa-times-circle mr-2"></i> ปฏิเสธ (NG)
+                                </button>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        render();
+    </script>
+</body>
+</html>
