@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Label QC Approval v3</title>
+    <title>Smart Label QC</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
-        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
         .scanner-line {
             width: 100%; height: 2px; background: #10B981; position: absolute;
             box-shadow: 0 0 10px #10B981; animation: scan 2s infinite linear; display: none;
@@ -27,12 +26,18 @@
 
     <script>
         // ==========================================
+        // CONFIGURATION (สำคัญมาก!)
+        // ==========================================
+        // นำลิงก์ที่ได้จากการ Deploy Apps Script มาวางในเครื่องหมายคำพูดด้านล่าง
+        const API_URL = "https://script.google.com/macros/s/AKfycbzW5QPUcGiI-I5xww5d465M8WhBRBO5iog6xtCv5IskedBs9CAm4Q_fszHkxr-f7tCazw/exec";
+
+        // ==========================================
         // STATE MANAGEMENT
         // ==========================================
         let currentUser = null; 
         const operatorList = ["สมชาย (Line 1)", "สมศรี (Line 1)", "วิชัย (Line 2)", "มานะ (Line 3)"];
-        let dbJobs = []; // จะถูกเติมจาก Google Sheet บน Cloud
-        let dbTickets = []; // จะถูกเติมจาก Google Sheet บน Cloud
+        let dbJobs = []; 
+        let dbTickets = []; 
         
         let currentSelectedJob = null;
         let stream = null;
@@ -44,6 +49,10 @@
         const appDiv = document.getElementById('app');
 
         function render() {
+            if (!API_URL || API_URL === "ใส่_URL_ของ_APPS_SCRIPT_ที่นี่") {
+                appDiv.innerHTML = `<div class="p-10 text-center"><h1 class="text-2xl text-red-600 font-bold mb-4">ยังไม่ได้ตั้งค่า API URL</h1><p>กรุณาแก้โค้ดบรรทัดที่ 41 นำลิงก์จาก Google Apps Script มาใส่</p></div>`;
+                return;
+            }
             if (!currentUser) renderLogin();
             else renderMainApp();
         }
@@ -57,7 +66,7 @@
                         <div class="mb-6">
                             <i class="fa-solid fa-shield-check text-5xl text-blue-600 mb-2"></i>
                             <h1 class="text-2xl font-bold text-gray-800">Label QC System</h1>
-                            <p class="text-sm text-gray-500">ระบบตรวจสอบฉลากอัจฉริยะ (AI OCR)</p>
+                            <p class="text-sm text-gray-500">ระบบตรวจสอบอัจฉริยะ (API Version)</p>
                         </div>
                         <div class="space-y-4 text-left">
                             <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
@@ -91,50 +100,42 @@
             currentUser = { role, name };
             currentTab = role === 'operator' ? 'scan' : 'inbox';
             currentSelectedJob = null; 
-            
-            // โหลดข้อมูลตั้งต้นจาก Google Sheet (Cloud) ทันทีที่ล็อกอิน
             fetchInitialData();
             render();
         }
 
         function logout() { currentUser = null; stopCamera(); render(); }
 
-        // --- FETCH DATA FROM GOOGLE SCRIPT (CLOUD) ---
+        // --- FETCH DATA FROM API (GET) ---
         function fetchInitialData() {
             isLoadingJobs = true;
             
-            if (typeof google !== 'undefined' && google.script) {
-                // ดึงข้อมูลแบบ Cloud เท่านั้น
-                google.script.run
-                    .withSuccessHandler(function(data) {
-                        dbJobs = data || [];
-                        isLoadingJobs = false;
-                        if(currentTab === 'scan' && !currentSelectedJob) renderMainApp();
-                    })
-                    .withFailureHandler(function(err) {
-                        alert("เกิดข้อผิดพลาดในการโหลด Job Order จาก Cloud: " + err.message);
-                        isLoadingJobs = false;
-                        if(currentTab === 'scan' && !currentSelectedJob) renderMainApp();
-                    })
-                    .getActiveJobsForQC();
-                    
-                fetchTickets();
-            } else {
-                alert("กรุณาเปิดใช้งานผ่านลิงก์ Web App ของ Google Apps Script เพื่อเชื่อมต่อกับฐานข้อมูลบน Cloud");
-                isLoadingJobs = false;
-                if(currentTab === 'scan' && !currentSelectedJob) renderMainApp();
-            }
+            // ดึง Job Order ผ่าน API (GET)
+            fetch(`${API_URL}?action=getJobs`)
+                .then(res => res.json())
+                .then(data => {
+                    dbJobs = data || [];
+                    isLoadingJobs = false;
+                    if(currentTab === 'scan' && !currentSelectedJob) renderMainApp();
+                })
+                .catch(err => {
+                    alert("เกิดข้อผิดพลาดในการโหลด API (Jobs): " + err.message);
+                    isLoadingJobs = false;
+                    if(currentTab === 'scan' && !currentSelectedJob) renderMainApp();
+                });
+                
+            fetchTickets();
         }
 
         function fetchTickets() {
-            if (typeof google !== 'undefined' && google.script) {
-                google.script.run.withSuccessHandler(function(data) {
+            // ดึง Inbox ผ่าน API (GET)
+            fetch(`${API_URL}?action=getTickets`)
+                .then(res => res.json())
+                .then(data => {
                     dbTickets = data || [];
                     if(currentTab === 'inbox') renderMainApp();
-                }).withFailureHandler(function(err) {
-                    console.error("โหลดข้อมูล Inbox จาก Cloud ไม่สำเร็จ: " + err.message);
-                }).getQCTickets();
-            }
+                })
+                .catch(err => console.error("โหลดข้อมูล API (Inbox) ไม่สำเร็จ: ", err));
         }
 
         // --- MAIN APP SHELL ---
@@ -198,10 +199,10 @@
                 let isSelectDisabled = false;
 
                 if (isLoadingJobs) {
-                    jobOptions = `<option value="">⏳ กำลังโหลดแผนการผลิตจาก Cloud...</option>`;
+                    jobOptions = `<option value="">⏳ กำลังโหลดแผนจาก API...</option>`;
                     isSelectDisabled = true;
                 } else if (dbJobs.length === 0) {
-                    jobOptions = `<option value="">❌ ไม่พบ Job Order ที่ยังไม่เสร็จ (Progress < 100%) บนระบบ Cloud</option>`;
+                    jobOptions = `<option value="">❌ ไม่พบ Job Order</option>`;
                     isSelectDisabled = true;
                 } else {
                     jobOptions = `<option value="">-- เลือก Job Order --</option>` + 
@@ -211,8 +212,7 @@
                 container.innerHTML = `
                     <div class="max-w-md mx-auto fade-in mt-10">
                         <div class="bg-white rounded-xl shadow p-6 border-t-4 border-blue-500">
-                            <h2 class="font-bold text-lg text-gray-800 mb-4"><i class="fa-solid fa-clipboard-list text-blue-500 mr-2"></i> ขั้นตอนที่ 1: เลือก Job Order</h2>
-                            <p class="text-sm text-gray-500 mb-2">เลือก Job Order ที่กำลังผลิต เพื่อดึงข้อมูลตั้งต้นจาก Google Sheet</p>
+                            <h2 class="font-bold text-lg text-gray-800 mb-4"><i class="fa-solid fa-clipboard-list text-blue-500 mr-2"></i> เลือก Job Order</h2>
                             <select id="job-selector" class="w-full p-3 border rounded-lg bg-gray-50 text-lg font-bold mb-6" ${isSelectDisabled ? 'disabled' : ''}>
                                 ${jobOptions}
                             </select>
@@ -253,8 +253,7 @@
                             ${isProcessingOCR ? `
                                 <div class="h-full flex flex-col justify-center items-center">
                                     <div class="loader mb-3"></div>
-                                    <p class="text-blue-600 font-bold mt-2">AI กำลังประมวลผลอ่านข้อความ...</p>
-                                    <p class="text-xs text-gray-500">กำลังเชื่อมต่อ Google Drive API</p>
+                                    <p class="text-blue-600 font-bold mt-2">AI กำลังประมวลผล (API)...</p>
                                 </div>
                             ` : !capturedImageBase64 ? `
                                 <div class="h-full flex flex-col justify-center items-center">
@@ -264,7 +263,7 @@
                             ` : `
                                 <div class="space-y-3">
                                     <div class="flex justify-between items-center">
-                                        <h3 class="font-bold text-sm text-gray-700"><i class="fa-solid fa-robot text-blue-500"></i> ข้อมูลที่ AI สกัดได้ (OCR)</h3>
+                                        <h3 class="font-bold text-sm text-gray-700"><i class="fa-solid fa-robot text-blue-500"></i> ข้อมูล (OCR)</h3>
                                         <button onclick="retakePhoto()" class="text-xs text-red-500 border border-red-500 px-2 py-1 rounded hover:bg-red-50"><i class="fa-solid fa-rotate-right"></i> ถ่ายใหม่</button>
                                     </div>
                                     <div class="grid grid-cols-1 gap-2 text-sm bg-gray-50 p-3 rounded border">
@@ -307,9 +306,8 @@
         }
 
         function selectJobAndStartCamera() {
-            const job = document.getElementById('job-selector').value;
-            if (!job) return alert("กรุณาเลือก Job Order");
-            currentSelectedJob = job; renderMainApp();
+            currentSelectedJob = document.getElementById('job-selector').value;
+            renderMainApp();
         }
 
         function changeJob() { currentSelectedJob = null; capturedImageBase64 = null; verificationResult = null; stopCamera(); renderMainApp(); }
@@ -327,24 +325,18 @@
         }
 
         // ==========================================
-        // CAPTURE & OCR PROCESS
+        // CAPTURE & SEND POST REQUEST TO API (OCR)
         // ==========================================
         function captureImage() {
             const video = document.getElementById('video');
             const canvas = document.createElement('canvas');
             
-            // Resize Image before sending to avoid Google Sheet Cell Limits
             const MAX_WIDTH = 800;
             let width = video.videoWidth;
             let height = video.videoHeight;
+            if (width > MAX_WIDTH) { height = Math.floor(height * (MAX_WIDTH / width)); width = MAX_WIDTH; }
             
-            if (width > MAX_WIDTH) {
-                height = Math.floor(height * (MAX_WIDTH / width));
-                width = MAX_WIDTH;
-            }
-            
-            canvas.width = width;
-            canvas.height = height;
+            canvas.width = width; canvas.height = height;
             canvas.getContext('2d').drawImage(video, 0, 0, width, height);
             
             document.getElementById('scanner-line').style.display = 'block';
@@ -353,35 +345,32 @@
             stopCamera();
             renderMainApp();
 
-            if (typeof google !== 'undefined' && google.script) {
-                const base64Data = capturedImageBase64.split(',')[1];
-                google.script.run.withSuccessHandler(handleOCRResult).withFailureHandler(function(err){
-                    alert("การประมวลผล OCR ล้มเหลว (Cloud Error): " + err.message);
-                    isProcessingOCR = false;
-                    capturedImageBase64 = null;
-                    renderMainApp();
-                }).performOCRFromImage(base64Data);
-            } else {
-                alert("ระบบ OCR ต้องการการประมวลผลผ่านระบบ Cloud (Google Apps Script) เท่านั้น");
-                isProcessingOCR = false;
-                capturedImageBase64 = null;
-                renderMainApp();
-            }
+            const base64Data = capturedImageBase64.split(',')[1];
+            
+            // ส่งข้อมูลไป OCR ผ่าน HTTP POST
+            fetch(API_URL, {
+                method: 'POST',
+                // หมายเหตุ: ไม่ใส่ Content-Type เพื่อป้องกัน CORS Preflight ที่ Apps Script มักจะมีปัญหา
+                body: JSON.stringify({ action: "ocr", base64: base64Data })
+            })
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) handleOCRResult(res.text);
+                else throw new Error(res.error);
+            })
+            .catch(err => {
+                alert("การประมวลผล API ล้มเหลว: " + err.message);
+                isProcessingOCR = false; capturedImageBase64 = null; renderMainApp();
+            });
         }
 
         function handleOCRResult(rawText) {
             isProcessingOCR = false;
-            
-            const jobObj = dbJobs.find(j => j.job === currentSelectedJob);
-            const targetModel = jobObj ? jobObj.targetModel : "";
+            const targetModel = dbJobs.find(j => j.job === currentSelectedJob)?.targetModel || "";
             let extModel = "", extLot = "", extDate = "";
 
-            if (rawText.includes(targetModel)) {
-                extModel = targetModel;
-            } else {
-                let mMatch = rawText.match(/[A-Z0-9-]{6,15}/);
-                if(mMatch) extModel = mMatch[0];
-            }
+            if (rawText.includes(targetModel)) extModel = targetModel;
+            else { let mMatch = rawText.match(/[A-Z0-9-]{6,15}/); if(mMatch) extModel = mMatch[0]; }
 
             let lotMatch = rawText.match(/TH\s+\d{2}\s+\d{2}\s+\d\s+[a-zA-Z]\s+\d/i);
             if(lotMatch) extLot = lotMatch[0].toUpperCase();
@@ -390,7 +379,6 @@
             if(dateMatch) extDate = dateMatch[0];
 
             renderMainApp();
-
             setTimeout(() => {
                 if(document.getElementById('ocr-model')) document.getElementById('ocr-model').value = extModel;
                 if(document.getElementById('ocr-lot')) document.getElementById('ocr-lot').value = extLot;
@@ -409,19 +397,12 @@
             const model = document.getElementById('ocr-model').value.trim();
             const lot = document.getElementById('ocr-lot').value.trim();
             const dateStr = document.getElementById('ocr-date').value.trim();
+            const targetModel = dbJobs.find(j => j.job === currentSelectedJob)?.targetModel || "";
             
-            const jobObj = dbJobs.find(j => j.job === currentSelectedJob);
-            const targetModel = jobObj ? jobObj.targetModel : "";
-            
-            let isPass = true;
-            let messages = [];
+            let isPass = true; let messages = [];
 
-            if (model === targetModel && model !== "") {
-                messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> Model ตรงกับ Plan (${targetModel})</span>`);
-            } else {
-                messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> Model ผิด! (ต้องการ ${targetModel})</span>`);
-                isPass = false;
-            }
+            if (model === targetModel && model !== "") { messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> Model ถูกต้อง (${targetModel})</span>`); } 
+            else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> Model ผิด! (ต้องเป็น ${targetModel})</span>`); isPass = false; }
 
             let bYear = 0;
             try {
@@ -429,35 +410,27 @@
                 if(dateParts.length !== 3) throw new Error();
                 bYear = parseInt(dateParts[2]);
                 if (bYear < 2500 || bYear > 2600 || dateParts[0].length !== 2) throw new Error();
-                messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> วันที่อยู่ในรูปแบบ พ.ศ. (${bYear})</span>`);
-            } catch (e) {
-                messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> วันที่ผลิตผิดรูปแบบ (DD/MM/YYYY พ.ศ.)</span>`);
-                isPass = false;
-            }
+                messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> วันที่ผลิตฟอร์แมตถูกต้อง</span>`);
+            } catch (e) { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> วันที่ผลิตผิดฟอร์แมต</span>`); isPass = false; }
 
             const lotParts = lot.split(/\s+/);
             if (lotParts.length >= 6 && lotParts[0] === 'TH') {
                 const lotYear = parseInt(lotParts[1]); 
                 if (bYear > 0) {
-                    const expectedLotYear = (bYear - 543) % 100; 
-                    if (lotYear === expectedLotYear) {
-                        messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> ปีใน Lot (${lotYear}) ตรงกับ พ.ศ. (${bYear})</span>`);
-                    } else {
-                        messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> ปีใน Lot (${lotYear}) ขัดแย้งกับปีผลิต พ.ศ. (${bYear})</span>`);
-                        isPass = false;
-                    }
+                    if (lotYear === (bYear - 543) % 100) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> ปีใน Lot สอดคล้องกับ พ.ศ.</span>`);
+                    else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> ปีใน Lot ขัดแย้งกับ พ.ศ.</span>`); isPass = false; }
                 }
-            } else {
-                messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> Lot No ผิดฟอร์แมต</span>`);
-                isPass = false;
-            }
+            } else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> Lot No ผิดฟอร์แมต</span>`); isPass = false; }
 
             verificationResult = { isPass, messages };
             renderMainApp();
         }
 
+        // ==========================================
+        // SEND TICKET TO API (POST)
+        // ==========================================
         function submitToQC() {
-            document.getElementById('submit-btn').innerHTML = `<div class="loader inline-block align-middle mr-2" style="width:15px;height:15px;border-width:2px;"></div> กำลังบันทึกบน Cloud...`;
+            document.getElementById('submit-btn').innerHTML = `<div class="loader inline-block align-middle mr-2" style="width:15px;height:15px;border-width:2px;"></div> กำลังบันทึก...`;
             document.getElementById('submit-btn').disabled = true;
 
             const newTicket = {
@@ -469,21 +442,22 @@
                 image: capturedImageBase64
             };
 
-            if (typeof google !== 'undefined' && google.script) {
-                google.script.run.withSuccessHandler(function(res) {
-                    alert(`ส่งเรื่องให้ QC ตรวจสอบเรียบร้อยแล้ว (Ref: ${res.id})`);
+            fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: "saveTicket", payload: newTicket })
+            })
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    alert(`บันทึก API สำเร็จ! (Ref: ${res.data.id})`);
                     capturedImageBase64 = null; verificationResult = null;
-                    fetchTickets();
-                    switchTab('inbox');
-                }).withFailureHandler(function(err){
-                    alert("เกิดข้อผิดพลาดในการบันทึกลง Cloud: " + err.message);
-                    document.getElementById('submit-btn').disabled = false;
-                }).saveQCTicket(newTicket);
-            } else {
-                alert("เกิดข้อผิดพลาด: ระบบไม่สามารถบันทึกได้เนื่องจากไม่ได้เชื่อมต่อกับระบบ Cloud");
-                document.getElementById('submit-btn').innerHTML = `<i class="fa-solid fa-paper-plane mr-2"></i> ส่งให้ QC ตรวจสอบ`;
+                    fetchTickets(); switchTab('inbox');
+                } else throw new Error(res.error);
+            })
+            .catch(err => {
+                alert("เกิดข้อผิดพลาดในการบันทึกผ่าน API: " + err.message);
                 document.getElementById('submit-btn').disabled = false;
-            }
+            });
         }
 
         // --- INBOX VIEW ---
@@ -493,7 +467,6 @@
             else if (currentUser.role === 'qc') displayTickets = [...dbTickets].sort((a, b) => (a.status === 'pending' ? -1 : 1));
 
             let html = `<div class="max-w-2xl mx-auto fade-in"><h2 class="font-bold text-gray-700 mb-4 text-lg">กล่องข้อความ (Inbox)</h2><div class="space-y-3 pb-20">`;
-
             if (displayTickets.length === 0) html += `<div class="text-center text-gray-500 py-10 bg-white rounded-xl shadow-sm">ไม่มีรายการในระบบ</div>`;
 
             displayTickets.forEach(t => {
@@ -504,99 +477,61 @@
 
                 html += `
                     <div onclick="openTicket('${t.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${t.status === 'pending' ? 'border-yellow-500' : t.status === 'approved' ? 'border-green-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3">
-                        <div class="w-16 h-16 bg-black rounded overflow-hidden flex-shrink-0">
-                            <img src="${t.imageUrl || 'https://via.placeholder.com/150?text=No+Image'}" class="w-full h-full object-cover opacity-80">
-                        </div>
+                        <div class="w-16 h-16 bg-black rounded overflow-hidden flex-shrink-0"><img src="${t.imageUrl || 'https://via.placeholder.com/150'}" class="w-full h-full object-cover opacity-80"></div>
                         <div class="flex-1 overflow-hidden">
-                            <div class="flex justify-between items-start">
-                                <span class="font-bold text-blue-800 text-sm truncate pr-2">${t.jobOrder}</span>
-                                <span class="text-[10px] px-2 py-0.5 rounded-full border ${statusColor} font-medium flex-shrink-0">${statusIcon}</span>
-                            </div>
+                            <div class="flex justify-between items-start"><span class="font-bold text-blue-800 text-sm truncate pr-2">${t.jobOrder}</span><span class="text-[10px] px-2 py-0.5 rounded-full border ${statusColor} font-medium flex-shrink-0">${statusIcon}</span></div>
                             <div class="text-sm font-bold text-gray-800 mt-1 truncate">Model: ${t.model}</div>
-                            <div class="text-[10px] text-gray-500 mt-1 truncate">Ref: ${t.id} • ส่งโดย: ${t.operator}</div>
+                            <div class="text-[10px] text-gray-500 mt-1 truncate">Ref: ${t.id}</div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             });
-            html += `</div></div>`;
-            container.innerHTML = html;
+            html += `</div></div>`; container.innerHTML = html;
         }
 
-        // --- TICKET DETAIL (APPROVAL) VIEW ---
+        // --- TICKET DETAIL (APPROVAL) ---
         function openTicket(id) { selectedTicket = dbTickets.find(t => t.id === id); renderMainApp(); }
         function closeTicket() { selectedTicket = null; renderMainApp(); }
 
         function processTicket(action) {
             let reason = "";
-            if (action === 'rejected') {
-                reason = prompt("ระบุสาเหตุที่ปฏิเสธ (เช่น รูปไม่ชัด, สีกล่องผิด):");
-                if (!reason) return;
-            }
+            if (action === 'rejected') { reason = prompt("ระบุสาเหตุที่ปฏิเสธ:"); if (!reason) return; }
             
-            if (typeof google !== 'undefined' && google.script) {
-                google.script.run.withSuccessHandler(function(res) {
-                    alert(`รายการถูกบันทึกเป็น ${action.toUpperCase()} เรียบร้อยแล้ว`);
-                    fetchTickets();
-                    closeTicket();
-                }).withFailureHandler(function(err){
-                    alert("เกิดข้อผิดพลาดในการอัปเดต Cloud: " + err.message);
-                }).updateQCTicketStatus(selectedTicket.id, action, currentUser.name, reason);
-            } else {
-                alert("ระบบต้องการการเชื่อมต่อ Cloud เพื่ออัปเดตสถานะ");
-            }
+            fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: "updateTicket", ticketId: selectedTicket.id, status: action, qcName: currentUser.name, reason: reason })
+            })
+            .then(res => res.json())
+            .then(res => {
+                if(res.success) { alert(`บันทึกเป็น ${action.toUpperCase()} สำเร็จ`); fetchTickets(); closeTicket(); }
+                else throw new Error(res.error);
+            })
+            .catch(err => alert("เกิดข้อผิดพลาดในการอัปเดตสถานะ API: " + err.message));
         }
 
         function renderTicketDetail(container) {
             let t = selectedTicket;
             let statusColor = t.status === 'pending' ? 'text-yellow-600' : t.status === 'approved' ? 'text-green-600' : 'text-red-600';
-
             container.innerHTML = `
                 <div class="max-w-2xl mx-auto fade-in pb-20">
-                    <button onclick="closeTicket()" class="mb-4 text-blue-600 hover:text-blue-800 font-medium">
-                        <i class="fa-solid fa-arrow-left mr-1"></i> กลับไปกล่องข้อความ
-                    </button>
+                    <button onclick="closeTicket()" class="mb-4 text-blue-600 hover:text-blue-800 font-medium"><i class="fa-solid fa-arrow-left mr-1"></i> กลับไปกล่องข้อความ</button>
                     <div class="bg-white rounded-xl shadow-md overflow-hidden">
                         <div class="p-4 border-b flex justify-between items-center bg-gray-50">
-                            <div class="overflow-hidden pr-2">
-                                <h2 class="font-bold text-lg text-blue-800 truncate">${t.jobOrder}</h2>
-                                <span class="text-xs text-gray-500">ID: ${t.id}</span>
-                            </div>
+                            <div class="overflow-hidden pr-2"><h2 class="font-bold text-lg text-blue-800 truncate">${t.jobOrder}</h2><span class="text-xs text-gray-500">ID: ${t.id}</span></div>
                             <span class="font-bold ${statusColor} uppercase text-sm flex-shrink-0">${t.status}</span>
                         </div>
-                        <div class="p-4 bg-black flex justify-center">
-                            <img src="${t.imageUrl || ''}" class="max-h-80 object-contain rounded border border-gray-700">
-                        </div>
+                        <div class="p-4 bg-black flex justify-center"><img src="${t.imageUrl || ''}" class="max-h-80 object-contain rounded border border-gray-700"></div>
                         <div class="p-5 space-y-4">
                             <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
                                 <h3 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1">ข้อมูลที่สกัดได้</h3>
-                                <div class="grid grid-cols-3 gap-2 text-sm">
-                                    <div class="text-gray-500">Model:</div><div class="col-span-2 font-bold text-gray-800">${t.model}</div>
-                                    <div class="text-gray-500 mt-1">Lot No:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.lot}</div>
-                                    <div class="text-gray-500 mt-1">วันที่ผลิต:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.date}</div>
-                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-sm"><div class="text-gray-500">Model:</div><div class="col-span-2 font-bold text-gray-800">${t.model}</div><div class="text-gray-500 mt-1">Lot No:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.lot}</div><div class="text-gray-500 mt-1">วันที่ผลิต:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.date}</div></div>
                             </div>
-                            <div class="grid grid-cols-2 gap-4 text-xs text-gray-500 border-t pt-4">
-                                <div><span class="block font-medium">ส่งเรื่อง (OP):</span>${t.operator} <br> ${t.timestamp}</div>
-                                ${t.status !== 'pending' ? `<div><span class="block font-medium">ตรวจสอบ (QC):</span>${t.qc} <br> ${t.actionTime}</div>` : ''}
-                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-xs text-gray-500 border-t pt-4"><div><span class="block font-medium">ส่งเรื่อง (OP):</span>${t.operator} <br> ${t.timestamp}</div>${t.status !== 'pending' ? `<div><span class="block font-medium">ตรวจสอบ (QC):</span>${t.qc} <br> ${t.actionTime}</div>` : ''}</div>
                             ${t.rejectReason ? `<div class="bg-red-50 text-red-700 p-3 rounded border border-red-200 text-sm mt-3"><strong>สาเหตุที่ปฏิเสธ:</strong> ${t.rejectReason}</div>` : ''}
-
-                            ${currentUser.role === 'qc' && t.status === 'pending' ? `
-                            <div class="flex gap-3 pt-4 border-t mt-4">
-                                <button onclick="processTicket('approved')" class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition">
-                                    <i class="fa-solid fa-check-circle mr-2"></i> อนุมัติ (PASS)
-                                </button>
-                                <button onclick="processTicket('rejected')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition">
-                                    <i class="fa-solid fa-times-circle mr-2"></i> ปฏิเสธ (NG)
-                                </button>
-                            </div>
-                            ` : ''}
+                            ${currentUser.role === 'qc' && t.status === 'pending' ? `<div class="flex gap-3 pt-4 border-t mt-4"><button onclick="processTicket('approved')" class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition"><i class="fa-solid fa-check-circle mr-2"></i> อนุมัติ (PASS)</button><button onclick="processTicket('rejected')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition"><i class="fa-solid fa-times-circle mr-2"></i> ปฏิเสธ (NG)</button></div>` : ''}
                         </div>
                     </div>
-                </div>
-            `;
+                </div>`;
         }
-
         render();
     </script>
 </body>
