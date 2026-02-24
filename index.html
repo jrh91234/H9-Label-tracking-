@@ -26,19 +26,21 @@
 
     <script>
         // ==========================================
-        // CONFIGURATION (สำคัญมาก!)
+        // CONFIGURATION
         // ==========================================
-        // นำลิงก์ที่ได้จากการ Deploy Apps Script มาวางในเครื่องหมายคำพูดด้านล่าง
         const API_URL = "https://script.google.com/macros/s/AKfycbzW5QPUcGiI-I5xww5d465M8WhBRBO5iog6xtCv5IskedBs9CAm4Q_fszHkxr-f7tCazw/exec";
 
         // ==========================================
         // STATE MANAGEMENT
         // ==========================================
         let currentUser = null; 
-        const operatorList = ["สมชาย (Line 1)", "สมศรี (Line 1)", "วิชัย (Line 2)", "มานะ (Line 3)"];
+        
+        // สถานะรายชื่อพนักงานจาก Cloud
+        let operatorList = []; 
+        let isOperatorsLoaded = false;
+        
         let dbJobs = []; 
         let dbTickets = []; 
-        
         let currentSelectedJob = null;
         let stream = null;
         let capturedImageBase64 = null;
@@ -48,18 +50,44 @@
 
         const appDiv = document.getElementById('app');
 
+        // โหลดรายชื่อทันทีที่เปิดเว็บ
+        function fetchOperators() {
+            fetch(`${API_URL}?action=getOperators`)
+                .then(res => res.json())
+                .then(data => {
+                    operatorList = data || [];
+                    isOperatorsLoaded = true;
+                    if (!currentUser) renderLogin();
+                })
+                .catch(err => {
+                    console.error("โหลดรายชื่อล้มเหลว", err);
+                    isOperatorsLoaded = true;
+                    if (!currentUser) renderLogin();
+                });
+        }
+        fetchOperators();
+
         function render() {
-            if (!API_URL || API_URL === "ใส่_URL_ของ_APPS_SCRIPT_ที่นี่") {
-                appDiv.innerHTML = `<div class="p-10 text-center"><h1 class="text-2xl text-red-600 font-bold mb-4">ยังไม่ได้ตั้งค่า API URL</h1><p>กรุณาแก้โค้ดบรรทัดที่ 41 นำลิงก์จาก Google Apps Script มาใส่</p></div>`;
-                return;
-            }
             if (!currentUser) renderLogin();
             else renderMainApp();
         }
 
         // --- LOGIN VIEW ---
         function renderLogin() {
-            let opOptions = operatorList.map(name => `<option value="${name}">${name}</option>`).join('');
+            let opOptions = "";
+            let isSelectDisabled = false;
+
+            if (!isOperatorsLoaded) {
+                opOptions = `<option value="">⏳ กำลังโหลดรายชื่อจาก Cloud...</option>`;
+                isSelectDisabled = true;
+            } else if (operatorList.length === 0) {
+                opOptions = `<option value="">❌ ไม่พบรายชื่อพนักงานในระบบ</option>`;
+                isSelectDisabled = true;
+            } else {
+                opOptions = `<option value="">-- เลือกชื่อพนักงาน --</option>` + 
+                            operatorList.map(name => `<option value="${name}">${name}</option>`).join('');
+            }
+
             appDiv.innerHTML = `
                 <div class="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-800 p-4 fade-in">
                     <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
@@ -71,11 +99,10 @@
                         <div class="space-y-4 text-left">
                             <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
                                 <label class="block text-sm font-bold text-blue-800 mb-2"><i class="fa-solid fa-user-gear"></i> ผู้ปฏิบัติงาน (Operator)</label>
-                                <select id="op-selector" class="w-full p-2 border rounded mb-2">
-                                    <option value="">-- เลือกชื่อพนักงาน --</option>
+                                <select id="op-selector" class="w-full p-2 border rounded mb-2" ${isSelectDisabled ? 'disabled' : ''}>
                                     ${opOptions}
                                 </select>
-                                <button onclick="loginOp()" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow transition">เข้าสู่ระบบ Operator</button>
+                                <button onclick="loginOp()" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded shadow transition disabled:opacity-50" ${isSelectDisabled ? 'disabled' : ''}>เข้าสู่ระบบ Operator</button>
                             </div>
                             <div class="border-t border-gray-200 my-4"></div>
                             <button onclick="login('qc', 'Wichai (QC)')" class="w-full py-3 bg-green-50 hover:bg-green-100 text-green-700 font-semibold rounded-lg border border-green-200 transition">
@@ -110,7 +137,6 @@
         function fetchInitialData() {
             isLoadingJobs = true;
             
-            // ดึง Job Order ผ่าน API (GET)
             fetch(`${API_URL}?action=getJobs`)
                 .then(res => res.json())
                 .then(data => {
@@ -128,7 +154,6 @@
         }
 
         function fetchTickets() {
-            // ดึง Inbox ผ่าน API (GET)
             fetch(`${API_URL}?action=getTickets`)
                 .then(res => res.json())
                 .then(data => {
@@ -228,6 +253,7 @@
             const jobObj = dbJobs.find(j => j.job === currentSelectedJob);
             const targetModel = jobObj ? jobObj.targetModel : "Unknown";
 
+            // อัปเดตการแสดงผลกล้องให้เห็นเต็มจอโดยไม่แหว่ง (object-contain)
             container.innerHTML = `
                 <div class="max-w-md mx-auto fade-in h-full flex flex-col pb-4">
                     <div class="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
@@ -239,9 +265,9 @@
                             <button onclick="changeJob()" class="text-xs text-blue-600 underline">เปลี่ยน Job</button>
                         </div>
                         
-                        <div class="relative bg-black flex-[0.8] flex items-center justify-center overflow-hidden" id="camera-container">
+                        <div class="relative bg-black flex-1 w-full h-full flex items-center justify-center overflow-hidden" id="camera-container" style="min-height: 40vh;">
                             ${!capturedImageBase64 ? `
-                                <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
+                                <video id="video" class="w-full h-full object-contain" autoplay playsinline></video>
                                 <div class="scanner-line" id="scanner-line"></div>
                                 <div class="absolute inset-0 border-[40px] border-black/40 pointer-events-none"></div>
                             ` : `
@@ -249,14 +275,14 @@
                             `}
                         </div>
 
-                        <div class="p-4 bg-white flex-1 overflow-y-auto" id="scan-controls">
+                        <div class="p-4 bg-white overflow-y-auto" id="scan-controls" style="max-height: 50vh;">
                             ${isProcessingOCR ? `
-                                <div class="h-full flex flex-col justify-center items-center">
+                                <div class="h-full flex flex-col justify-center items-center py-4">
                                     <div class="loader mb-3"></div>
                                     <p class="text-blue-600 font-bold mt-2">AI กำลังประมวลผล (API)...</p>
                                 </div>
                             ` : !capturedImageBase64 ? `
-                                <div class="h-full flex flex-col justify-center items-center">
+                                <div class="h-full flex flex-col justify-center items-center py-4">
                                     <p class="text-sm text-center text-gray-500 mb-4">จัด Label ให้อยู่ในกรอบแล้วกดถ่ายรูป</p>
                                     <button onclick="captureImage()" class="w-16 h-16 rounded-full bg-blue-600 border-4 border-blue-200 shadow-lg active:scale-95 transition"></button>
                                 </div>
@@ -347,10 +373,8 @@
 
             const base64Data = capturedImageBase64.split(',')[1];
             
-            // ส่งข้อมูลไป OCR ผ่าน HTTP POST
             fetch(API_URL, {
                 method: 'POST',
-                // หมายเหตุ: ไม่ใส่ Content-Type เพื่อป้องกัน CORS Preflight ที่ Apps Script มักจะมีปัญหา
                 body: JSON.stringify({ action: "ocr", base64: base64Data })
             })
             .then(res => res.json())
