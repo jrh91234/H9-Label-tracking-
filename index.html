@@ -31,15 +31,15 @@
         // ==========================================
         let currentUser = null; 
         const operatorList = ["สมชาย (Line 1)", "สมศรี (Line 1)", "วิชัย (Line 2)", "มานะ (Line 3)"];
-        let dbJobs = []; // จะถูกเติมจาก Google Sheet
-        let dbTickets = []; // จะถูกเติมจาก Google Sheet
+        let dbJobs = []; // จะถูกเติมจาก Google Sheet บน Cloud
+        let dbTickets = []; // จะถูกเติมจาก Google Sheet บน Cloud
         
         let currentSelectedJob = null;
         let stream = null;
         let capturedImageBase64 = null;
         let verificationResult = null; 
         let isProcessingOCR = false;
-        let isLoadingJobs = false; // [เพิ่ม] ตัวแปรเช็คสถานะการโหลด
+        let isLoadingJobs = false; 
 
         const appDiv = document.getElementById('app');
 
@@ -92,19 +92,19 @@
             currentTab = role === 'operator' ? 'scan' : 'inbox';
             currentSelectedJob = null; 
             
-            // โหลดข้อมูลตั้งต้นจาก Google Sheet ทันทีที่ล็อกอิน
+            // โหลดข้อมูลตั้งต้นจาก Google Sheet (Cloud) ทันทีที่ล็อกอิน
             fetchInitialData();
             render();
         }
 
         function logout() { currentUser = null; stopCamera(); render(); }
 
-        // --- FETCH DATA FROM GOOGLE SCRIPT ---
+        // --- FETCH DATA FROM GOOGLE SCRIPT (CLOUD) ---
         function fetchInitialData() {
             isLoadingJobs = true;
             
             if (typeof google !== 'undefined' && google.script) {
-                // [แก้ไข] เพิ่ม withFailureHandler เพื่อไม่ให้เว็บค้างเมื่อเกิด Error หลังบ้าน
+                // ดึงข้อมูลแบบ Cloud เท่านั้น
                 google.script.run
                     .withSuccessHandler(function(data) {
                         dbJobs = data || [];
@@ -112,7 +112,7 @@
                         if(currentTab === 'scan' && !currentSelectedJob) renderMainApp();
                     })
                     .withFailureHandler(function(err) {
-                        alert("เกิดข้อผิดพลาดในการโหลด Job Order: " + err.message);
+                        alert("เกิดข้อผิดพลาดในการโหลด Job Order จาก Cloud: " + err.message);
                         isLoadingJobs = false;
                         if(currentTab === 'scan' && !currentSelectedJob) renderMainApp();
                     })
@@ -120,16 +120,9 @@
                     
                 fetchTickets();
             } else {
-                console.warn("ไม่พบ Google Apps Script Environment - โหลดข้อมูลจำลองสำหรับทดสอบ");
-                // [แก้ไข] กรณีเปิดไฟล์ HTML เทสบนเครื่องตัวเอง จะจำลองข้อมูลให้เพื่อไม่ให้ค้าง
-                setTimeout(() => {
-                    dbJobs = [
-                        { job: 'TH-SCDD-TEST-001', targetModel: 'S9HCL118' },
-                        { job: 'TH-SCDD-TEST-002', targetModel: 'S9HCL120' }
-                    ];
-                    isLoadingJobs = false;
-                    if(currentTab === 'scan' && !currentSelectedJob) renderMainApp();
-                }, 1500);
+                alert("กรุณาเปิดใช้งานผ่านลิงก์ Web App ของ Google Apps Script เพื่อเชื่อมต่อกับฐานข้อมูลบน Cloud");
+                isLoadingJobs = false;
+                if(currentTab === 'scan' && !currentSelectedJob) renderMainApp();
             }
         }
 
@@ -138,6 +131,8 @@
                 google.script.run.withSuccessHandler(function(data) {
                     dbTickets = data || [];
                     if(currentTab === 'inbox') renderMainApp();
+                }).withFailureHandler(function(err) {
+                    console.error("โหลดข้อมูล Inbox จาก Cloud ไม่สำเร็จ: " + err.message);
                 }).getQCTickets();
             }
         }
@@ -199,15 +194,14 @@
         // --- SCAN & CAMERA VIEW (OPERATOR) ---
         function renderScanView(container) {
             if (!currentSelectedJob) {
-                // [แก้ไข] ปรับปรุงเงื่อนไขการแสดงผลช่องเลือก Job Order
                 let jobOptions = "";
                 let isSelectDisabled = false;
 
                 if (isLoadingJobs) {
-                    jobOptions = `<option value="">⏳ กำลังโหลดแผนการผลิต...</option>`;
+                    jobOptions = `<option value="">⏳ กำลังโหลดแผนการผลิตจาก Cloud...</option>`;
                     isSelectDisabled = true;
                 } else if (dbJobs.length === 0) {
-                    jobOptions = `<option value="">❌ ไม่พบ Job Order ที่ยังไม่เสร็จ (Progress < 100%)</option>`;
+                    jobOptions = `<option value="">❌ ไม่พบ Job Order ที่ยังไม่เสร็จ (Progress < 100%) บนระบบ Cloud</option>`;
                     isSelectDisabled = true;
                 } else {
                     jobOptions = `<option value="">-- เลือก Job Order --</option>` + 
@@ -218,7 +212,7 @@
                     <div class="max-w-md mx-auto fade-in mt-10">
                         <div class="bg-white rounded-xl shadow p-6 border-t-4 border-blue-500">
                             <h2 class="font-bold text-lg text-gray-800 mb-4"><i class="fa-solid fa-clipboard-list text-blue-500 mr-2"></i> ขั้นตอนที่ 1: เลือก Job Order</h2>
-                            <p class="text-sm text-gray-500 mb-2">เลือก Job Order ที่กำลังผลิต เพื่อดึงข้อมูลตั้งต้น</p>
+                            <p class="text-sm text-gray-500 mb-2">เลือก Job Order ที่กำลังผลิต เพื่อดึงข้อมูลตั้งต้นจาก Google Sheet</p>
                             <select id="job-selector" class="w-full p-3 border rounded-lg bg-gray-50 text-lg font-bold mb-6" ${isSelectDisabled ? 'disabled' : ''}>
                                 ${jobOptions}
                             </select>
@@ -260,7 +254,7 @@
                                 <div class="h-full flex flex-col justify-center items-center">
                                     <div class="loader mb-3"></div>
                                     <p class="text-blue-600 font-bold mt-2">AI กำลังประมวลผลอ่านข้อความ...</p>
-                                    <p class="text-xs text-gray-500">ผ่าน Google Drive API</p>
+                                    <p class="text-xs text-gray-500">กำลังเชื่อมต่อ Google Drive API</p>
                                 </div>
                             ` : !capturedImageBase64 ? `
                                 <div class="h-full flex flex-col justify-center items-center">
@@ -362,13 +356,16 @@
             if (typeof google !== 'undefined' && google.script) {
                 const base64Data = capturedImageBase64.split(',')[1];
                 google.script.run.withSuccessHandler(handleOCRResult).withFailureHandler(function(err){
-                    alert("การประมวลผล OCR ล้มเหลว: " + err.message);
+                    alert("การประมวลผล OCR ล้มเหลว (Cloud Error): " + err.message);
                     isProcessingOCR = false;
                     capturedImageBase64 = null;
                     renderMainApp();
                 }).performOCRFromImage(base64Data);
             } else {
-                setTimeout(() => handleOCRResult("Test Text TH 26 04 7 A 5 24/01/2569 S9HCL118"), 2000); // สำหรับเทส
+                alert("ระบบ OCR ต้องการการประมวลผลผ่านระบบ Cloud (Google Apps Script) เท่านั้น");
+                isProcessingOCR = false;
+                capturedImageBase64 = null;
+                renderMainApp();
             }
         }
 
@@ -460,7 +457,7 @@
         }
 
         function submitToQC() {
-            document.getElementById('submit-btn').innerHTML = `<div class="loader inline-block align-middle mr-2" style="width:15px;height:15px;border-width:2px;"></div> กำลังบันทึก...`;
+            document.getElementById('submit-btn').innerHTML = `<div class="loader inline-block align-middle mr-2" style="width:15px;height:15px;border-width:2px;"></div> กำลังบันทึกบน Cloud...`;
             document.getElementById('submit-btn').disabled = true;
 
             const newTicket = {
@@ -479,9 +476,13 @@
                     fetchTickets();
                     switchTab('inbox');
                 }).withFailureHandler(function(err){
-                    alert("Error: " + err.message);
+                    alert("เกิดข้อผิดพลาดในการบันทึกลง Cloud: " + err.message);
                     document.getElementById('submit-btn').disabled = false;
                 }).saveQCTicket(newTicket);
+            } else {
+                alert("เกิดข้อผิดพลาด: ระบบไม่สามารถบันทึกได้เนื่องจากไม่ได้เชื่อมต่อกับระบบ Cloud");
+                document.getElementById('submit-btn').innerHTML = `<i class="fa-solid fa-paper-plane mr-2"></i> ส่งให้ QC ตรวจสอบ`;
+                document.getElementById('submit-btn').disabled = false;
             }
         }
 
@@ -537,7 +538,11 @@
                     alert(`รายการถูกบันทึกเป็น ${action.toUpperCase()} เรียบร้อยแล้ว`);
                     fetchTickets();
                     closeTicket();
+                }).withFailureHandler(function(err){
+                    alert("เกิดข้อผิดพลาดในการอัปเดต Cloud: " + err.message);
                 }).updateQCTicketStatus(selectedTicket.id, action, currentUser.name, reason);
+            } else {
+                alert("ระบบต้องการการเชื่อมต่อ Cloud เพื่ออัปเดตสถานะ");
             }
         }
 
