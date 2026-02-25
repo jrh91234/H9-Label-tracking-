@@ -438,21 +438,73 @@
             else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> Model ผิด! (ต้องเป็น ${targetModel})</span>`); isPass = false; }
 
             let bYear = 0;
+            let expectedWeek = 0;
             try {
                 const dateParts = dateStr.split('/');
                 if(dateParts.length !== 3) throw new Error();
-                bYear = parseInt(dateParts[2]);
+                
+                const pDate = parseInt(dateParts[0], 10);
+                const pMonth = parseInt(dateParts[1], 10) - 1;
+                bYear = parseInt(dateParts[2], 10);
+                
                 if (bYear < 2500 || bYear > 2600 || dateParts[0].length !== 2) throw new Error();
                 messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> วันที่ผลิตฟอร์แมตถูกต้อง</span>`);
-            } catch (e) { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> วันที่ผลิตผิดฟอร์แมต</span>`); isPass = false; }
+                
+                // คำนวณสัปดาห์ (ISO Week) จากวันที่ผลิต (แปลงเป็น ค.ศ. ก่อนคำนวณ)
+                const cYear = bYear - 543;
+                const target = new Date(cYear, pMonth, pDate);
+                const dayNr = (target.getDay() + 6) % 7;
+                target.setDate(target.getDate() - dayNr + 3);
+                const firstThursday = target.valueOf();
+                target.setMonth(0, 1);
+                if (target.getDay() !== 4) {
+                    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+                }
+                expectedWeek = 1 + Math.ceil((firstThursday - target) / 604800000);
+
+            } catch (e) { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> วันที่ผลิตผิดฟอร์แมต (DD/MM/YYYY พ.ศ.)</span>`); isPass = false; }
 
             const lotParts = lot.split(/\s+/);
             if (lotParts.length >= 6 && lotParts[0] === 'TH') {
-                const lotYear = parseInt(lotParts[1]); 
+                const lotYear = parseInt(lotParts[1], 10);
+                const lotWeek = parseInt(lotParts[2], 10);
+                const lotShift = lotParts[4].toUpperCase();
+
+                // กฎที่ 1: ตรวจสอบปี (2 ตัวหลังของ ค.ศ.)
                 if (bYear > 0) {
-                    if (lotYear === (bYear - 543) % 100) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> ปีใน Lot สอดคล้องกับ พ.ศ.</span>`);
-                    else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> ปีใน Lot ขัดแย้งกับ พ.ศ.</span>`); isPass = false; }
+                    const expectedLotYear = (bYear - 543) % 100;
+                    if (lotYear === expectedLotYear) {
+                        messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> ปีใน Lot (${lotYear}) สอดคล้องกับ ค.ศ.</span>`);
+                    } else { 
+                        messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> ปีใน Lot (${lotYear}) ขัดแย้งกับ ค.ศ. (${expectedLotYear})</span>`); 
+                        isPass = false; 
+                    }
                 }
+
+                // กฎที่ 2: ตรวจสอบสัปดาห์ของปี
+                if (expectedWeek > 0) {
+                    if (lotWeek === expectedWeek) {
+                        messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> สัปดาห์ใน Lot (${lotWeek}) ตรงกับวันที่ผลิต</span>`);
+                    } else {
+                        messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> สัปดาห์ใน Lot (${lotWeek}) ผิด! (สัปดาห์จริงคือ ${expectedWeek})</span>`);
+                        isPass = false;
+                    }
+                }
+
+                // กฎที่ 3: ตรวจสอบกะ (Shift) เทียบกับชื่อ User
+                if (lotShift === 'A' || lotShift === 'B') {
+                    const isShiftMatch = currentUser.name.toUpperCase().includes(lotShift);
+                    if (isShiftMatch) {
+                        messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> กะใน Lot (${lotShift}) ตรงกับชื่อพนักงาน (${currentUser.name})</span>`);
+                    } else {
+                        messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> กะใน Lot (${lotShift}) ไม่ตรงสิทธิ์พนักงาน (${currentUser.name})</span>`);
+                        isPass = false;
+                    }
+                } else {
+                    messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> กะต้องเป็น A หรือ B (พบ: ${lotShift})</span>`);
+                    isPass = false;
+                }
+
             } else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> Lot No ผิดฟอร์แมต</span>`); isPass = false; }
 
             verificationResult = { isPass, messages };
