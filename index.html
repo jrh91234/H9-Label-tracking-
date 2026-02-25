@@ -35,7 +35,7 @@
         // ==========================================
         // STATE MANAGEMENT
         // ==========================================
-        let currentUser = null; // { role: 'operator'|'qc'|'supervisor'|'admin', name: '...' }
+        let currentUser = null; 
         
         let dbJobs = []; 
         let dbTickets = []; 
@@ -82,7 +82,6 @@
                 </div>
             `;
 
-            // อนุญาตให้กด Enter เพื่อล็อกอินได้
             setTimeout(() => {
                 document.getElementById('login-password')?.addEventListener('keypress', function(e) {
                     if (e.key === 'Enter') handleLogin();
@@ -100,7 +99,6 @@
             btn.innerHTML = `<div class="loader loader-white"></div> <span>กำลังตรวจสอบ...</span>`;
             btn.disabled = true;
 
-            // ส่งข้อมูลไปเช็คกับ Google Sheet (Sheet "Users")
             fetch(API_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: "login", username: user, password: pass })
@@ -108,15 +106,12 @@
             .then(res => res.json())
             .then(res => {
                 if (res.success) {
-                    currentUser = res.data; // ได้ค่า { role: "...", name: "..." }
-                    
-                    // Routing: จัดการหน้าแรกตาม Role อัตโนมัติ
+                    currentUser = res.data; 
                     if (currentUser.role === 'operator') {
                         currentTab = 'scan';
                     } else {
-                        currentTab = 'inbox'; // QC, Supervisor, Admin จะมาหน้านี้หมด
+                        currentTab = 'inbox'; 
                     }
-                    
                     currentSelectedJob = null; 
                     fetchInitialData();
                     render();
@@ -141,7 +136,6 @@
         function fetchInitialData() {
             isLoadingJobs = true;
             
-            // ดึง Job Order
             fetch(`${API_URL}?action=getJobs`)
                 .then(res => res.json())
                 .then(data => {
@@ -273,7 +267,6 @@
                             <button onclick="changeJob()" class="text-xs text-blue-600 underline"><i class="fa-solid fa-pen"></i> เปลี่ยน Job</button>
                         </div>
                         
-                        <!-- ปรับกล้องไม่ให้โดนตัด (object-contain) -->
                         <div class="relative bg-black flex-1 w-full h-full flex items-center justify-center overflow-hidden" id="camera-container" style="min-height: 40vh;">
                             ${!capturedImageBase64 ? `
                                 <video id="video" class="w-full h-full object-contain" autoplay playsinline></video>
@@ -360,7 +353,7 @@
         }
 
         // ==========================================
-        // CAPTURE & POST TO API (OCR)
+        // SMART IMAGE OPTIMIZATION & OCR
         // ==========================================
         function captureImage() {
             const video = document.getElementById('video');
@@ -372,11 +365,33 @@
             if (width > MAX_WIDTH) { height = Math.floor(height * (MAX_WIDTH / width)); width = MAX_WIDTH; }
             
             canvas.width = width; canvas.height = height;
-            canvas.getContext('2d').drawImage(video, 0, 0, width, height);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, width, height);
             
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                
+                if (gray < 130) {
+                    gray = gray * 0.7; 
+                } else {
+                    gray = Math.min(255, gray * 1.2); 
+                }
+                
+                data[i] = gray;
+                data[i + 1] = gray;
+                data[i + 2] = gray;
+            }
+            ctx.putImageData(imageData, 0, 0);
+
             document.getElementById('scanner-line').style.display = 'block';
             isProcessingOCR = true;
-            capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
+            
+            capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.70);
             stopCamera();
             renderMainApp();
 
@@ -405,8 +420,12 @@
             if (rawText.includes(targetModel)) extModel = targetModel;
             else { let mMatch = rawText.match(/[A-Z0-9-]{6,15}/); if(mMatch) extModel = mMatch[0]; }
 
-            let lotMatch = rawText.match(/TH\s+\d{2}\s+\d{2}\s+\d\s+[a-zA-Z]\s+\d/i);
-            if(lotMatch) extLot = lotMatch[0].toUpperCase();
+            // [แก้ไข ISSUE 1] ปรับ Regex ให้ยืดหยุ่น ยอมรับข้อความที่ไม่มีช่องว่างหรือมี - ขั้น
+            let lotMatch = rawText.match(/TH[\s-]*\d{2}[\s-]*\d{2}[\s-]*\d[\s-]*[a-zA-Z][\s-]*\d/i);
+            if(lotMatch) {
+                // จัดระเบียบข้อความที่อ่านได้ ให้เป็นช่องว่างเดียว (Single Space) ตามฟอร์แมตเป๊ะๆ
+                extLot = lotMatch[0].toUpperCase().replace(/\s+/g, '').replace(/TH(\d{2})(\d{2})(\d)([A-Z])(\d)/, 'TH $1 $2 $3 $4 $5');
+            }
 
             let dateMatch = rawText.match(/\d{2}\/\d{2}\/\d{4}/);
             if(dateMatch) extDate = dateMatch[0];
@@ -437,8 +456,23 @@
             if (model === targetModel && model !== "") { messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> Model ถูกต้อง (${targetModel})</span>`); } 
             else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> Model ผิด! (ต้องเป็น ${targetModel})</span>`); isPass = false; }
 
+            // [เพิ่ม ISSUE 2] ดึงเวลาปัจจุบัน (Real-time) ของเครื่องมาใช้เป็นเกณฑ์หลัก
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth();
+            const currentDate = now.getDate();
+            
+            // คำนวณสัปดาห์ปัจจุบัน (Current ISO Week) ของวันนี้
+            const targetNow = new Date(now.valueOf());
+            const dayNrNow = (now.getDay() + 6) % 7;
+            targetNow.setDate(targetNow.getDate() - dayNrNow + 3);
+            const firstThursdayNow = targetNow.valueOf();
+            targetNow.setMonth(0, 1);
+            if (targetNow.getDay() !== 4) { targetNow.setMonth(0, 1 + ((4 - targetNow.getDay()) + 7) % 7); }
+            const currentWeek = 1 + Math.ceil((firstThursdayNow - targetNow) / 604800000);
+            const expectedLotYear = currentYear % 100;
+
             let bYear = 0;
-            let expectedWeek = 0;
             try {
                 const dateParts = dateStr.split('/');
                 if(dateParts.length !== 3) throw new Error();
@@ -448,19 +482,15 @@
                 bYear = parseInt(dateParts[2], 10);
                 
                 if (bYear < 2500 || bYear > 2600 || dateParts[0].length !== 2) throw new Error();
-                messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> วันที่ผลิตฟอร์แมตถูกต้อง</span>`);
                 
-                // คำนวณสัปดาห์ (ISO Week) จากวันที่ผลิต (แปลงเป็น ค.ศ. ก่อนคำนวณ)
+                // [เพิ่ม ISSUE 2] เช็คว่าวันที่บน Label คือ "วันนี้" จริงๆ หรือไม่
                 const cYear = bYear - 543;
-                const target = new Date(cYear, pMonth, pDate);
-                const dayNr = (target.getDay() + 6) % 7;
-                target.setDate(target.getDate() - dayNr + 3);
-                const firstThursday = target.valueOf();
-                target.setMonth(0, 1);
-                if (target.getDay() !== 4) {
-                    target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+                if (cYear === currentYear && pMonth === currentMonth && pDate === currentDate) {
+                    messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> วันที่ผลิตตรงกับวันนี้ (ปัจจุบัน)</span>`);
+                } else {
+                    messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> วันที่ผลิตไม่ใช่วันนี้! (พบ: ${pDate}/${pMonth+1}/${bYear})</span>`);
+                    isPass = false;
                 }
-                expectedWeek = 1 + Math.ceil((firstThursday - target) / 604800000);
 
             } catch (e) { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> วันที่ผลิตผิดฟอร์แมต (DD/MM/YYYY พ.ศ.)</span>`); isPass = false; }
 
@@ -470,32 +500,27 @@
                 const lotWeek = parseInt(lotParts[2], 10);
                 const lotShift = lotParts[4].toUpperCase();
 
-                // กฎที่ 1: ตรวจสอบปี (2 ตัวหลังของ ค.ศ.)
-                if (bYear > 0) {
-                    const expectedLotYear = (bYear - 543) % 100;
-                    if (lotYear === expectedLotYear) {
-                        messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> ปีใน Lot (${lotYear}) สอดคล้องกับ ค.ศ.</span>`);
-                    } else { 
-                        messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> ปีใน Lot (${lotYear}) ขัดแย้งกับ ค.ศ. (${expectedLotYear})</span>`); 
-                        isPass = false; 
-                    }
+                // [เพิ่ม ISSUE 2] กฎที่ 1: ตรวจสอบปีใน Lot ต้องตรงกับปีปัจจุบัน
+                if (lotYear === expectedLotYear) {
+                    messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> ปีใน Lot (${lotYear}) ตรงกับปีปัจจุบัน</span>`);
+                } else { 
+                    messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> ปีใน Lot (${lotYear}) ไม่ตรงกับปีปัจจุบัน (${expectedLotYear})</span>`); 
+                    isPass = false; 
                 }
 
-                // กฎที่ 2: ตรวจสอบสัปดาห์ของปี
-                if (expectedWeek > 0) {
-                    if (lotWeek === expectedWeek) {
-                        messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> สัปดาห์ใน Lot (${lotWeek}) ตรงกับวันที่ผลิต</span>`);
-                    } else {
-                        messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> สัปดาห์ใน Lot (${lotWeek}) ผิด! (สัปดาห์จริงคือ ${expectedWeek})</span>`);
-                        isPass = false;
-                    }
+                // [เพิ่ม ISSUE 2] กฎที่ 2: ตรวจสอบสัปดาห์ใน Lot ต้องตรงกับสัปดาห์ปัจจุบัน
+                if (lotWeek === currentWeek) {
+                    messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> สัปดาห์ใน Lot (${lotWeek}) ตรงกับสัปดาห์ปัจจุบัน</span>`);
+                } else {
+                    messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> สัปดาห์ใน Lot (${lotWeek}) ไม่ตรงกับสัปดาห์ปัจจุบัน (${currentWeek})</span>`);
+                    isPass = false;
                 }
 
                 // กฎที่ 3: ตรวจสอบกะ (Shift) เทียบกับชื่อ User
                 if (lotShift === 'A' || lotShift === 'B') {
                     const isShiftMatch = currentUser.name.toUpperCase().includes(lotShift);
                     if (isShiftMatch) {
-                        messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> กะใน Lot (${lotShift}) ตรงกับชื่อพนักงาน (${currentUser.name})</span>`);
+                        messages.push(`<span class="text-green-600"><i class="fa-solid fa-check"></i> กะใน Lot (${lotShift}) ตรงกับพนักงาน (${currentUser.name})</span>`);
                     } else {
                         messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> กะใน Lot (${lotShift}) ไม่ตรงสิทธิ์พนักงาน (${currentUser.name})</span>`);
                         isPass = false;
@@ -505,7 +530,7 @@
                     isPass = false;
                 }
 
-            } else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> Lot No ผิดฟอร์แมต</span>`); isPass = false; }
+            } else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark"></i> Lot No ผิดฟอร์แมต (อาจอ่านไม่ครบ)</span>`); isPass = false; }
 
             verificationResult = { isPass, messages };
             renderMainApp();
@@ -553,11 +578,9 @@
         function renderInboxView(container) {
             let displayTickets = dbTickets;
             
-            // กรองข้อมูลตาม Role
             if (currentUser.role === 'operator') {
                 displayTickets = dbTickets.filter(t => t.operator === currentUser.name);
             } else {
-                // QC, Sup, Admin จะเห็นทั้งหมด โดยเรียงเอา pending ขึ้นก่อน
                 displayTickets = [...dbTickets].sort((a, b) => {
                     if(a.status === 'pending' && b.status !== 'pending') return -1;
                     if(a.status !== 'pending' && b.status === 'pending') return 1;
@@ -617,7 +640,6 @@
             let t = selectedTicket;
             let statusColor = t.status === 'pending' ? 'text-yellow-600' : t.status === 'approved' ? 'text-green-600' : 'text-red-600';
             
-            // ตรวจสอบสิทธิ์ว่ามีสิทธิ์กด Approve/Reject ไหม (QC และ Admin กดยืนยันได้, Operator ดูได้อย่างเดียว)
             let canApprove = (currentUser.role === 'qc' || currentUser.role === 'admin' || currentUser.role === 'supervisor') && t.status === 'pending';
 
             container.innerHTML = `
