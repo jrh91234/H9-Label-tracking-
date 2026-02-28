@@ -161,6 +161,47 @@ function executeChangePassword() {
     });
 }
 
+// 🛡️ ระบบสำรองข้อมูล (Backup to CSV)
+function exportTicketsToCSV() {
+    if (!dbTickets || dbTickets.length === 0) return showCustomAlert("ไม่มีข้อมูลสำหรับดาวน์โหลด");
+    
+    // ใส่ BOM \uFEFF เพื่อให้ Excel อ่านภาษาไทยได้สมบูรณ์
+    let csvContent = "\uFEFF"; 
+    const headers = ["Ticket ID", "Job Order", "Model", "Lot No", "วันที่ผลิต", "จำนวน (Qty)", "ผู้สแกน (OP)", "สถานะ", "ผู้ตรวจ (QC)", "เวลาแจ้งเรื่อง", "เวลาอนุมัติ", "เหตุผลไม่อนุมัติ", "ลิงก์รูปภาพ"];
+    csvContent += headers.join(",") + "\n";
+    
+    dbTickets.forEach(t => {
+        let cleanTime = formatDisplayDate(t.timestamp);
+        let cleanActionTime = formatDisplayDate(t.actionTime);
+        // ใช้ "..." คลุมข้อมูลเพื่อป้องกันปัญหาจากเครื่องหมายจุลภาค (,) ที่อาจมีในข้อความ
+        let row = [
+            `"${t.id}"`,
+            `"${t.jobOrder}"`,
+            `"${t.model}"`,
+            `"${t.lot}"`,
+            `"${t.date}"`,
+            `"${t.qty || '-'}"`,
+            `"${t.operator}"`,
+            `"${t.status}"`,
+            `"${t.qc || '-'}"`,
+            `"${cleanTime}"`,
+            `"${cleanActionTime}"`,
+            `"${t.rejectReason || '-'}"`,
+            `"${t.imageUrl || '-'}"`
+        ];
+        csvContent += row.join(",") + "\n";
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `QC_Backup_${getTodayDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
 // ฟังก์ชันสำหรับแสดงรูปภาพแบบเต็มจอ (HD)
 function showImageModal(imageUrl) {
     if (!imageUrl || imageUrl.includes('placeholder')) return;
@@ -503,6 +544,18 @@ function renderContent() {
 function renderAdminView(container) {
     let html = `
         <div class="max-w-2xl mx-auto fade-in pb-20 p-4">
+            
+            <!-- 🛡️ กล่องระบบ Backup -->
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-6 border-l-4 border-green-500">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="font-bold text-gray-700 text-base"><i class="fa-solid fa-database text-green-500 mr-2"></i> สำรองข้อมูล (Backup)</h2>
+                </div>
+                <p class="text-xs text-gray-500 mb-3">ดาวน์โหลดประวัติการตรวจสอบล่าสุดออกมาเป็นไฟล์ Excel (CSV)</p>
+                <button onclick="exportTicketsToCSV()" class="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold shadow-sm transition flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-file-excel"></i> ดาวน์โหลดข้อมูลตั๋ว (CSV)
+                </button>
+            </div>
+
             <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
                 <h2 class="font-bold text-gray-700 text-lg"><i class="fa-solid fa-users-cog text-blue-500 mr-2"></i> จัดการผู้ใช้งาน</h2>
                 <button onclick="showAddUserModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg shadow-sm font-bold flex items-center gap-2 transition"><i class="fa-solid fa-plus"></i> เพิ่มผู้ใช้</button>
