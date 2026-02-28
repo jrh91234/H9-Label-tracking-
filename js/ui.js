@@ -1,5 +1,5 @@
 // ==========================================
-// CUSTOM MODALS
+// CUSTOM MODALS & HELPERS
 // ==========================================
 function showCustomAlert(message, isSuccess = false) {
     const id = 'alert-' + Date.now();
@@ -36,6 +36,17 @@ function confirmReject() {
     if(!reason) return showCustomAlert("กรุณาระบุสาเหตุที่ปฏิเสธ");
     document.getElementById('reject-modal').remove();
     executeProcessTicket('rejected', reason);
+}
+
+// 🛡️ ฟังก์ชันใหม่: แปลงลิงก์ Google Drive ให้แสดงผลแบบ Direct Image
+function getDriveImageUrl(url) {
+    if (!url) return 'https://via.placeholder.com/150';
+    // ดึง ID ของไฟล์ออกมา และแปลงเป็นลิงก์ CDN ที่แสดงผลใน <img> ได้ 100%
+    const match = url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+        return `https://lh3.googleusercontent.com/d/${match[1]}`;
+    }
+    return url;
 }
 
 // ==========================================
@@ -98,7 +109,7 @@ function handleLogin() {
     .then(res => {
         if (res.success) {
             currentUser = res.data; 
-            localStorage.setItem('qc_app_user', JSON.stringify(currentUser)); // บันทึก Session การล็อกอิน
+            localStorage.setItem('qc_app_user', JSON.stringify(currentUser)); 
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
             currentSelectedJob = null; 
             fetchInitialData();
@@ -118,7 +129,7 @@ function handleLogin() {
 
 function logout() { 
     currentUser = null; 
-    localStorage.removeItem('qc_app_user'); // ลบ Session ทิ้งเมื่อออกจากระบบ
+    localStorage.removeItem('qc_app_user');
     stopCamera(); 
     render(); 
 }
@@ -178,7 +189,6 @@ function fetchUsersList() {
 // APP ROUTING & UI RENDERING
 // ==========================================
 function switchTab(tab) {
-    // 🛡️ Route Guard
     if (tab === 'scan' && currentUser.role !== 'operator' && currentUser.role !== 'admin') {
         showCustomAlert("คุณไม่มีสิทธิ์เข้าถึงหน้าสแกนฉลาก", false);
         return;
@@ -194,7 +204,7 @@ function switchTab(tab) {
     if (tab !== 'scan') stopCamera();
     
     if (tab === 'admin') {
-        fetchUsersList(); // ดึงข้อมูลก่อนแสดงผลหน้า Admin
+        fetchUsersList(); 
     } else {
         renderMainApp();
     }
@@ -372,7 +382,7 @@ function executeAddUser() {
         if (res.success) {
             document.getElementById('add-user-modal').remove();
             showCustomAlert(`เพิ่มบัญชี "${name}" เข้าสู่ระบบเรียบร้อย`, true);
-            fetchUsersList(); // รีโหลดข้อมูลตารางผู้ใช้ใหม่
+            fetchUsersList();
         } else throw new Error(res.error);
     })
     .catch(err => {
@@ -412,7 +422,7 @@ function executeDeleteUser(username) {
         if(res.success) {
             document.getElementById('delete-modal').remove();
             showCustomAlert(`ลบบัญชี ${username} ออกจากระบบแล้ว`, true);
-            fetchUsersList(); // รีโหลดข้อมูลตารางผู้ใช้ใหม่
+            fetchUsersList();
         } else throw new Error(res.error);
     })
     .catch(err => {
@@ -487,12 +497,10 @@ function renderScanView(container) {
         return;
     }
 
-    // Safety checks in case state.js is not loaded properly
     const safeModel = typeof extractedModel !== 'undefined' ? extractedModel : '';
     const safeLot = typeof extractedLot !== 'undefined' ? extractedLot : '';
     const safeDate = typeof extractedDate !== 'undefined' ? extractedDate : '';
 
-    // การแยกตัวแปร HTML ออกมาเพื่อป้องกัน Parser ของเบราว์เซอร์สับสน
     let verifyHtml = '';
     if (!verificationResult) {
         verifyHtml = `
@@ -671,7 +679,10 @@ function renderInboxView(container) {
 
         html += `
             <div onclick="openTicket('${t.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${t.status === 'pending' ? 'border-yellow-500' : t.status === 'approved' ? 'border-green-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3 transition">
-                <div class="w-16 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0 border"><img src="${t.imageUrl || 'https://via.placeholder.com/150'}" class="w-full h-full object-cover"></div>
+                <div class="w-16 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0 border">
+                    <!-- 🛡️ เรียกใช้ฟังก์ชันแปลงลิงก์รูปตรงนี้ -->
+                    <img src="${getDriveImageUrl(t.imageUrl)}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150'">
+                </div>
                 <div class="flex-1 overflow-hidden">
                     <div class="flex justify-between items-start">
                         <span class="font-bold text-blue-800 text-sm truncate pr-2">${t.jobOrder}</span>
@@ -725,7 +736,10 @@ function renderTicketDetail(container) {
                     </div>
                     <span class="font-bold ${statusColor} uppercase text-sm flex-shrink-0">${t.status}</span>
                 </div>
-                <div class="p-4 bg-black flex justify-center"><img src="${t.imageUrl || ''}" class="max-h-80 object-contain rounded border border-gray-700"></div>
+                <div class="p-4 bg-black flex justify-center">
+                    <!-- 🛡️ เรียกใช้ฟังก์ชันแปลงลิงก์รูปตรงนี้ -->
+                    <img src="${getDriveImageUrl(t.imageUrl)}" class="max-h-80 object-contain rounded border border-gray-700" onerror="this.src='https://via.placeholder.com/400x300?text=Image+Not+Found'">
+                </div>
                 <div class="p-5 space-y-4">
                     <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
                         <h3 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1">ข้อมูลที่สกัดได้จากฉลาก</h3>
@@ -749,7 +763,7 @@ function renderTicketDetail(container) {
                     ` : ''}
                 </div>
             </div>
-        </div>`
+        </div>`;
 }
 
 // ==========================================
