@@ -1,6 +1,8 @@
 // ==========================================
 // CAMERA LOGIC
 // ==========================================
+let extractedQty = ""; // เพิ่มตัวแปรสำหรับเก็บค่าจำนวน
+
 async function startCamera() {
     try {
         if (!stream) {
@@ -15,7 +17,7 @@ async function startCamera() {
             
             stream = await navigator.mediaDevices.getUserMedia(constraints);
             
-            // พยายามเปิดระบบ Auto Focus (Continuous) หากเบราว์เซอร์/มือถือรองรับ
+            // พยายามเปิดระบบ Auto Focus (Continuous)
             const track = stream.getVideoTracks()[0];
             const capabilities = track.getCapabilities();
             if (capabilities && capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
@@ -44,7 +46,6 @@ async function captureImage() {
     if(!video || !video.videoWidth) return;
 
     const canvas = document.createElement('canvas');
-    // ใช้ขนาด Original ของกล้องที่ถ่ายได้เลย
     let width = video.videoWidth;
     let height = video.videoHeight;
     
@@ -53,7 +54,7 @@ async function captureImage() {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, width, height);
     
-    // Image Optimization (ทำภาพขาวดำ + เพิ่ม Contrast ให้ AI อ่านง่ายขึ้น)
+    // Image Optimization (ทำภาพขาวดำ + เพิ่ม Contrast)
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
     for (let i = 0; i < data.length; i += 4) {
@@ -68,17 +69,15 @@ async function captureImage() {
     if(scanner) scanner.style.display = 'block';
     
     isProcessingOCR = true;
-    // เก็บรูปขนาด Original เต็มๆ ไว้
     capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.95);
     
-    // 1. อ่าน Barcode จากรูปภาพ (Frontend Native API)
+    // อ่าน Barcode ด้วย
     let barcodeText = "";
     if ('BarcodeDetector' in window) {
         try {
             const barcodeDetector = new BarcodeDetector();
             const barcodes = await barcodeDetector.detect(canvas);
             barcodeText = barcodes.map(b => b.rawValue).join(" ");
-            if (barcodeText) console.log("พบ Barcode/QR:", barcodeText);
         } catch (err) {
             console.log("BarcodeDetector error:", err);
         }
@@ -96,7 +95,6 @@ async function captureImage() {
     .then(res => res.json())
     .then(res => {
         if (res.success) {
-            // รวมผลลัพธ์จาก AI (OCR) และ Barcode เข้าด้วยกัน
             handleOCRResult(res.text + " " + barcodeText);
         }
         else throw new Error(res.error);
@@ -111,10 +109,9 @@ async function captureImage() {
 // OCR & SMART VERIFICATION
 // ==========================================
 
-// Event Listener ดักจับการแก้ไขข้อมูลในช่องกรอก (Auto-detect)
+// ดักจับการพิมพ์เพื่อรัน Auto-detect
 document.addEventListener('input', function(e) {
-    if (e.target.id === 'ocr-model' || e.target.id === 'ocr-lot' || e.target.id === 'ocr-date') {
-        // เมื่อมีการพิมพ์แก้ ให้รันตรวจสอบใหม่ทันที พร้อมส่ง Flag ว่ามาจากการพิมพ์ (true)
+    if (e.target.id === 'ocr-model' || e.target.id === 'ocr-lot' || e.target.id === 'ocr-date' || e.target.id === 'ocr-qty') {
         runSmartVerification(true);
     }
 });
@@ -123,11 +120,15 @@ function handleOCRResult(rawText) {
     isProcessingOCR = false;
     const targetModel = dbJobs.find(j => j.job === currentSelectedJob)?.targetModel || "";
     
-    // เคลียร์ค่าเก่าก่อน
-    extractedModel = ""; extractedLot = ""; extractedDate = "";
+    // เคลียร์ค่าทั้งหมด
+    extractedModel = ""; extractedLot = ""; extractedDate = ""; extractedQty = "";
 
+    // 🔴 ปรับ Regex ให้อ่านเครื่องหมายทับ (/) ได้ด้วย
     if (rawText.includes(targetModel)) extractedModel = targetModel;
-    else { let mMatch = rawText.match(/[A-Z0-9-]{6,15}/); if(mMatch) extractedModel = mMatch[0]; }
+    else { 
+        let mMatch = rawText.match(/[A-Z0-9-\/]{6,25}/); 
+        if(mMatch) extractedModel = mMatch[0]; 
+    }
 
     let lotMatch = rawText.match(/TH[\s-]*\d{2}[\s-]*\d{2}[\s-]*\d[\s-]*[a-zA-Z][\s-]*\d/i);
     if(lotMatch) {
@@ -139,7 +140,6 @@ function handleOCRResult(rawText) {
 
     renderMainApp();
     
-    // ตั้งหน่วงเวลาเล็กน้อยเพื่อให้หน้าจอ Render เสร็จก่อนรันตรวจสอบ
     setTimeout(() => {
         runSmartVerification();
     }, 100);
@@ -149,13 +149,14 @@ function runSmartVerification(isFromInput = false) {
     const modelEl = document.getElementById('ocr-model');
     const lotEl = document.getElementById('ocr-lot');
     const dateEl = document.getElementById('ocr-date');
+    const qtyEl = document.getElementById('ocr-qty'); 
     
-    // อัปเดตตัวแปร State จากหน้าจอ (เก็บค่าดิบ ไม่ตัด Space เพื่อไม่ให้เคอร์เซอร์สะดุดเวลาพิมพ์ค้าง)
+    // อัปเดตตัวแปร State จากหน้าจอ
     if (modelEl) extractedModel = modelEl.value;
     if (lotEl) extractedLot = lotEl.value;
     if (dateEl) extractedDate = dateEl.value;
+    if (qtyEl) extractedQty = qtyEl.value; 
 
-    // นำค่าไปเช็คโดยตัดช่องว่างซ้ายขวาออกก่อน (trim)
     const model = extractedModel.trim();
     const lot = extractedLot.trim();
     const dateStr = extractedDate.trim();
@@ -248,18 +249,16 @@ function runSmartVerification(isFromInput = false) {
 
     verificationResult = { isPass, messages };
 
-    // หากมาจากการพิมพ์แก้ไข (isFromInput) ต้องจดจำตำแหน่ง Cursor ไว้ก่อน Render เพื่อไม่ให้การพิมพ์สะดุด
     if (isFromInput) {
         const activeId = document.activeElement ? document.activeElement.id : null;
         let selectionStart = 0, selectionEnd = 0;
-        if (activeId && (activeId === 'ocr-model' || activeId === 'ocr-lot' || activeId === 'ocr-date')) {
+        if (activeId && (activeId === 'ocr-model' || activeId === 'ocr-lot' || activeId === 'ocr-date' || activeId === 'ocr-qty')) {
             selectionStart = document.activeElement.selectionStart;
             selectionEnd = document.activeElement.selectionEnd;
         }
         
-        renderMainApp(); // วาดหน้าจอใหม่แสดงผลลัพธ์ใหม่
+        renderMainApp(); 
         
-        // คืนค่า Focus กลับไปยังจุดเดิม
         if (activeId) {
             const el = document.getElementById(activeId);
             if (el) {
@@ -279,5 +278,6 @@ function retakePhoto() {
     extractedModel = "";
     extractedLot = "";
     extractedDate = "";
+    extractedQty = "";
     renderMainApp();
 }
