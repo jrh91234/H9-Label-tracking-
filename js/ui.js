@@ -99,7 +99,7 @@ function handleLogin() {
         if (res.success) {
             currentUser = res.data; 
             localStorage.setItem('qc_app_user', JSON.stringify(currentUser)); // บันทึก Session การล็อกอิน
-            currentTab = (currentUser.role === 'operator') ? 'scan' : 'inbox';
+            currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
             currentSelectedJob = null; 
             fetchInitialData();
             render();
@@ -157,7 +157,15 @@ function fetchTickets() {
 // APP ROUTING & UI RENDERING
 // ==========================================
 function switchTab(tab) {
-    currentTab = tab; selectedTicket = null;
+    // 🛡️ Route Guard: ป้องกันผู้ใช้ที่ไม่มีสิทธิ์เข้าถึงหน้าสแกน
+    if (tab === 'scan' && currentUser.role !== 'operator' && currentUser.role !== 'admin') {
+        showCustomAlert("คุณไม่มีสิทธิ์เข้าถึงหน้าสแกนฉลาก", false);
+        return;
+    }
+
+    currentTab = tab; 
+    selectedTicket = null;
+    
     if (tab !== 'scan') stopCamera();
     renderMainApp();
 }
@@ -531,16 +539,21 @@ function renderTicketDetail(container) {
 // START APP & AUTH CHECK
 // ==========================================
 function initApp() {
-    // ตรวจสอบข้อมูลการล็อกอินที่เคยบันทึกไว้ใน LocalStorage
+    // 🛡️ เช็คความถูกต้องและสิทธิ์ของ Session ก่อนให้เข้าใช้งาน
     const savedUser = localStorage.getItem('qc_app_user');
     if (savedUser) {
         try {
             currentUser = JSON.parse(savedUser);
+            // หากไม่มีข้อมูล Role ใน Object ที่เซฟไว้ ให้ถือว่า Session พังและต้องล็อกอินใหม่
+            if (!currentUser || !currentUser.role) {
+                throw new Error("Invalid Session Data");
+            }
+            
             // ตั้งค่า Tab ตาม Role ปัจจุบัน
-            currentTab = (currentUser.role === 'operator') ? 'scan' : 'inbox';
+            currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
             fetchInitialData();
         } catch (e) {
-            // หากข้อมูล Session ผิดพลาด ให้ทำการลบทิ้ง
+            // หากข้อมูล Session ผิดพลาด ให้ทำการลบทิ้งและแสดงหน้าล็อกอิน
             localStorage.removeItem('qc_app_user');
             currentUser = null;
         }
