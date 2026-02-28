@@ -82,26 +82,25 @@ function captureImage() {
 function handleOCRResult(rawText) {
     isProcessingOCR = false;
     const targetModel = dbJobs.find(j => j.job === currentSelectedJob)?.targetModel || "";
-    let extModel = "", extLot = "", extDate = "";
+    
+    // เคลียร์ค่าเก่าก่อน
+    extractedModel = ""; extractedLot = ""; extractedDate = "";
 
-    if (rawText.includes(targetModel)) extModel = targetModel;
-    else { let mMatch = rawText.match(/[A-Z0-9-]{6,15}/); if(mMatch) extModel = mMatch[0]; }
+    if (rawText.includes(targetModel)) extractedModel = targetModel;
+    else { let mMatch = rawText.match(/[A-Z0-9-]{6,15}/); if(mMatch) extractedModel = mMatch[0]; }
 
     let lotMatch = rawText.match(/TH[\s-]*\d{2}[\s-]*\d{2}[\s-]*\d[\s-]*[a-zA-Z][\s-]*\d/i);
     if(lotMatch) {
-        extLot = lotMatch[0].toUpperCase().replace(/\s+/g, '').replace(/TH(\d{2})(\d{2})(\d)([A-Z])(\d)/, 'TH $1 $2 $3 $4 $5');
+        extractedLot = lotMatch[0].toUpperCase().replace(/\s+/g, '').replace(/TH(\d{2})(\d{2})(\d)([A-Z])(\d)/, 'TH $1 $2 $3 $4 $5');
     }
 
     let dateMatch = rawText.match(/\d{2}\/\d{2}\/\d{4}/);
-    if(dateMatch) extDate = dateMatch[0];
+    if(dateMatch) extractedDate = dateMatch[0];
 
     renderMainApp();
     
+    // ตั้งหน่วงเวลาเล็กน้อยเพื่อให้หน้าจอ Render เสร็จก่อนรันตรวจสอบ
     setTimeout(() => {
-        if(document.getElementById('ocr-model')) document.getElementById('ocr-model').value = extModel;
-        if(document.getElementById('ocr-lot')) document.getElementById('ocr-lot').value = extLot;
-        if(document.getElementById('ocr-date')) document.getElementById('ocr-date').value = extDate;
-        
         runSmartVerification();
     }, 100);
 }
@@ -111,11 +110,14 @@ function runSmartVerification() {
     const lotEl = document.getElementById('ocr-lot');
     const dateEl = document.getElementById('ocr-date');
     
-    if(!modelEl || !lotEl || !dateEl) return;
+    // อัปเดตตัวแปร State จากหน้าจอ (กรณีที่ผู้ใช้งานพิมพ์แก้ข้อผิดพลาด AI เอง)
+    if (modelEl) extractedModel = modelEl.value.trim();
+    if (lotEl) extractedLot = lotEl.value.trim();
+    if (dateEl) extractedDate = dateEl.value.trim();
 
-    const model = modelEl.value.trim();
-    const lot = lotEl.value.trim();
-    const dateStr = dateEl.value.trim();
+    const model = extractedModel;
+    const lot = extractedLot;
+    const dateStr = extractedDate;
     const targetModel = dbJobs.find(j => j.job === currentSelectedJob)?.targetModel || "";
     
     let isPass = true; let messages = [];
@@ -206,5 +208,11 @@ function runSmartVerification() {
 }
 
 function retakePhoto() {
-    capturedImageBase64 = null; verificationResult = null; isProcessingOCR = false; renderMainApp();
+    capturedImageBase64 = null; 
+    verificationResult = null; 
+    isProcessingOCR = false; 
+    extractedModel = "";
+    extractedLot = "";
+    extractedDate = "";
+    renderMainApp();
 }
