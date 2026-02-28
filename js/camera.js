@@ -4,13 +4,31 @@
 async function startCamera() {
     try {
         if (!stream) {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            // บังคับขอกล้องความละเอียดสูง (Full HD)
+            const constraints = {
+                video: { 
+                    facingMode: "environment",
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                } 
+            };
+            
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            // พยายามเปิดระบบ Auto Focus (Continuous) หากเบราว์เซอร์/มือถือรองรับ
+            const track = stream.getVideoTracks()[0];
+            const capabilities = track.getCapabilities();
+            if (capabilities && capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+                await track.applyConstraints({
+                    advanced: [{ focusMode: "continuous" }]
+                });
+            }
         }
         const video = document.getElementById('video');
         if(video) video.srcObject = stream;
     } catch (err) { 
         console.error("Camera error", err); 
-        showCustomAlert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึงกล้อง");
+        showCustomAlert("ไม่สามารถเปิดกล้องได้ หรืออุปกรณ์ไม่รองรับการตั้งค่ากล้อง");
     }
 }
 
@@ -21,16 +39,17 @@ function stopCamera() {
     }
 }
 
-function captureImage() {
+async function captureImage() {
     const video = document.getElementById('video');
     if(!video || !video.videoWidth) return;
 
     const canvas = document.createElement('canvas');
-    // ใช้ขนาด Original ของกล้องเลย เพื่อให้ OCR อ่านได้แม่นยำที่สุด
+    // ใช้ขนาด Original ของกล้องที่ถ่ายได้เลย
     let width = video.videoWidth;
     let height = video.videoHeight;
     
-    canvas.width = width; canvas.height = height;
+    canvas.width = width; 
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, width, height);
     
@@ -52,6 +71,19 @@ function captureImage() {
     // เก็บรูปขนาด Original เต็มๆ ไว้
     capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.95);
     
+    // 1. อ่าน Barcode จากรูปภาพ (Frontend Native API)
+    let barcodeText = "";
+    if ('BarcodeDetector' in window) {
+        try {
+            const barcodeDetector = new BarcodeDetector();
+            const barcodes = await barcodeDetector.detect(canvas);
+            barcodeText = barcodes.map(b => b.rawValue).join(" ");
+            if (barcodeText) console.log("พบ Barcode/QR:", barcodeText);
+        } catch (err) {
+            console.log("BarcodeDetector error:", err);
+        }
+    }
+
     stopCamera();
     renderMainApp();
 
@@ -63,7 +95,10 @@ function captureImage() {
     })
     .then(res => res.json())
     .then(res => {
-        if (res.success) handleOCRResult(res.text);
+        if (res.success) {
+            // รวมผลลัพธ์จาก AI (OCR) และ Barcode เข้าด้วยกัน
+            handleOCRResult(res.text + " " + barcodeText);
+        }
         else throw new Error(res.error);
     })
     .catch(err => {
@@ -79,6 +114,7 @@ function handleOCRResult(rawText) {
     isProcessingOCR = false;
     const targetModel = dbJobs.find(j => j.job === currentSelectedJob)?.targetModel || "";
     
+    // เคลียร์ค่าเก่าก่อน
     extractedModel = ""; extractedLot = ""; extractedDate = "";
 
     if (rawText.includes(targetModel)) extractedModel = targetModel;
@@ -94,6 +130,7 @@ function handleOCRResult(rawText) {
 
     renderMainApp();
     
+    // ตั้งหน่วงเวลาเล็กน้อยเพื่อให้หน้าจอ Render เสร็จก่อนรันตรวจสอบ
     setTimeout(() => {
         runSmartVerification();
     }, 100);
@@ -104,6 +141,7 @@ function runSmartVerification() {
     const lotEl = document.getElementById('ocr-lot');
     const dateEl = document.getElementById('ocr-date');
     
+    // อัปเดตตัวแปร State จากหน้าจอ (กรณีที่ผู้ใช้งานพิมพ์แก้ข้อผิดพลาด AI เอง)
     if (modelEl) extractedModel = modelEl.value.trim();
     if (lotEl) extractedLot = lotEl.value.trim();
     if (dateEl) extractedDate = dateEl.value.trim();
