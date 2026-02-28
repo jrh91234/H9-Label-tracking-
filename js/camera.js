@@ -178,7 +178,6 @@ function runSmartVerification(isFromInput = false) {
     const currentDate = now.getDate();
     
     // 🟢 คำนวณวันในสัปดาห์: 1 = วันอาทิตย์, 2 = วันจันทร์, ..., 7 = วันเสาร์
-    // now.getDay() ให้ค่า 0 ถึง 6 เราจึงบวก 1 เข้าไปให้ตรงกับกฎ
     let currentDayOfWeek = now.getDay() + 1;
     const dayNames = ["", "อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
 
@@ -242,7 +241,7 @@ function runSmartVerification(isFromInput = false) {
             isPass = false;
         }
 
-        // 🟢 เช็ควันในสัปดาห์ (1=อาทิตย์ ... 7=เสาร์)
+        // เช็ควันในสัปดาห์ (1=อาทิตย์ ... 7=เสาร์)
         if (lotDay === currentDayOfWeek) {
             messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันในสัปดาห์ (${lotDay}) ตรงกับวันนี้ (วัน${dayNames[currentDayOfWeek]})</span>`);
         } else {
@@ -250,10 +249,14 @@ function runSmartVerification(isFromInput = false) {
             isPass = false;
         }
 
-        // เช็คกะ
+        // 🟢 เช็คกะ (Admin ส่งได้อิสระ ไม่ต้องเช็คชื่อ / Operator ต้องเช็ค)
         if (lotShift === 'A' || lotShift === 'B') {
-            const isShiftMatch = currentUser.name.toUpperCase().includes(lotShift);
-            if (isShiftMatch) {
+            const isAdmin = currentUser && currentUser.role === 'admin';
+            const isShiftMatch = currentUser && currentUser.name.toUpperCase().includes(lotShift);
+            
+            if (isAdmin) {
+                messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> กะใน Lot (${lotShift}) (อนุญาตสิทธิ์ Admin)</span>`);
+            } else if (isShiftMatch) {
                 messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> กะใน Lot (${lotShift}) ตรงกับชื่อผู้สแกน</span>`);
             } else {
                 messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> กะใน Lot (${lotShift}) ไม่ตรงสิทธิ์ผู้สแกน</span>`);
