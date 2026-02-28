@@ -12,7 +12,6 @@ function requestNotificationPermission() {
 function updateBadgeAndNotify(tickets) {
     if (!currentUser) return;
 
-    // กรองหาเฉพาะรายการที่รอตรวจสอบ
     let pendingTickets = tickets.filter(t => t.status === 'pending');
     if (currentUser.role === 'operator') {
         pendingTickets = pendingTickets.filter(t => t.operator === currentUser.name);
@@ -20,7 +19,6 @@ function updateBadgeAndNotify(tickets) {
 
     const pendingCount = pendingTickets.length;
 
-    // 1. อัปเดตตัวเลขแจ้งเตือนบนไอคอนแอป (App Badge)
     if ('setAppBadge' in navigator) {
         if (pendingCount > 0) {
             navigator.setAppBadge(pendingCount).catch(err => console.log("Badge error:", err));
@@ -29,7 +27,6 @@ function updateBadgeAndNotify(tickets) {
         }
     }
 
-    // 2. เด้ง Push Notification เมื่อมีรายการใหม่
     const storedCount = parseInt(localStorage.getItem('qc_pending_count') || '0');
     if (pendingCount > storedCount && currentUser.role !== 'operator') {
         const newItemsCount = pendingCount - storedCount;
@@ -42,13 +39,11 @@ function updateBadgeAndNotify(tickets) {
         }
     }
     
-    // บันทึกจำนวนล่าสุดไว้เทียบในรอบถัดไป
     localStorage.setItem('qc_pending_count', pendingCount.toString());
 }
 
 function startAutoFetch() {
     if (autoFetchInterval) clearInterval(autoFetchInterval);
-    // รีเฟรชข้อมูลเบื้องหลังอัตโนมัติ ทุกๆ 30 วินาที
     autoFetchInterval = setInterval(() => {
         if (currentUser) fetchTickets();
     }, 30000); 
@@ -57,7 +52,6 @@ function startAutoFetch() {
 function stopAutoFetch() {
     if (autoFetchInterval) clearInterval(autoFetchInterval);
 }
-
 
 // ==========================================
 // CUSTOM MODALS & HELPERS
@@ -99,15 +93,19 @@ function confirmReject() {
     executeProcessTicket('rejected', reason);
 }
 
-// 🛡️ ฟังก์ชันใหม่: แปลงลิงก์ Google Drive ให้แสดงผลผ่าน Thumbnail API ป้องกันรูปแตก
 function getDriveImageUrl(url) {
     if (!url) return 'https://via.placeholder.com/150';
-    // ดึง ID ของไฟล์ออกมา และแปลงเป็นลิงก์ Thumbnail ของ Drive (มีความเสถียรสูงสุดสำหรับการนำมาแปะบนเว็บ)
     const match = url.match(/id=([a-zA-Z0-9_-]+)/) || url.match(/d\/([a-zA-Z0-9_-]+)/);
     if (match && match[1]) {
         return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
     }
     return url;
+}
+
+// ตัวจัดการวันที่ ไม่ให้ติดตัว T กลับมาแสดงผล
+function formatDisplayDate(dateStr) {
+    if (!dateStr) return '';
+    return String(dateStr).replace('T', ' ').replace('.000Z', '');
 }
 
 // ==========================================
@@ -162,7 +160,6 @@ function handleLogin() {
     btn.innerHTML = `<div class="loader loader-white"></div> <span>กำลังตรวจสอบ...</span>`;
     btn.disabled = true;
     
-    // ขออนุญาตแจ้งเตือนเมื่อผู้ใช้มี Action
     requestNotificationPermission();
 
     fetch(API_URL, {
@@ -178,7 +175,7 @@ function handleLogin() {
             currentSelectedJob = null; 
             
             fetchInitialData();
-            startAutoFetch(); // เริ่มทำงาน Auto Refresh
+            startAutoFetch(); 
             render();
         } else {
             showCustomAlert(res.error || "ล็อกอินไม่สำเร็จ");
@@ -197,12 +194,12 @@ function logout() {
     currentUser = null; 
     localStorage.removeItem('qc_app_user');
     stopCamera(); 
-    stopAutoFetch(); // หยุด Auto Refresh
+    stopAutoFetch(); 
     render(); 
 }
 
 // ==========================================
-// DATA FETCHING (JOBS & TICKETS)
+// DATA FETCHING 
 // ==========================================
 function fetchInitialData() {
     isLoadingJobs = true;
@@ -226,15 +223,12 @@ function fetchTickets() {
         .then(res => res.json())
         .then(data => {
             dbTickets = data || [];
-            updateBadgeAndNotify(dbTickets); // อัปเดตแจ้งเตือนและตัวเลขที่ไอคอน
+            updateBadgeAndNotify(dbTickets); 
             if(currentTab === 'inbox') renderMainApp();
         })
         .catch(err => console.error("โหลดข้อมูล Inbox ไม่สำเร็จ: ", err));
 }
 
-// ==========================================
-// DATA FETCHING (ADMIN - USERS)
-// ==========================================
 let adminUsersList = [];
 
 function fetchUsersList() {
@@ -568,6 +562,7 @@ function renderScanView(container) {
     const safeModel = typeof extractedModel !== 'undefined' ? extractedModel : '';
     const safeLot = typeof extractedLot !== 'undefined' ? extractedLot : '';
     const safeDate = typeof extractedDate !== 'undefined' ? extractedDate : '';
+    const safeQty = typeof extractedQty !== 'undefined' ? extractedQty : ''; // ฟิลด์จำนวนปริ้น
 
     let verifyHtml = '';
     if (!verificationResult) {
@@ -613,9 +608,16 @@ function renderScanView(container) {
                         <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">2. Lot No. (TH YY WW DD Shift Line)</label>
                         <input type="text" id="ocr-lot" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition uppercase" value="${safeLot}">
                     </div>
-                    <div>
-                        <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">3. วันที่ผลิต (รูปแบบ DD/MM/YYYY พ.ศ.)</label>
-                        <input type="text" id="ocr-date" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition" value="${safeDate}">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">3. วันที่ผลิต</label>
+                            <input type="text" id="ocr-date" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition" value="${safeDate}">
+                        </div>
+                        <div>
+                            <!-- 🔴 เพิ่มช่องกรอกจำนวน (Print Quantity) -->
+                            <label class="text-[10px] text-blue-600 uppercase font-bold tracking-wider">4. จำนวน (Print Qty) <span class="text-red-500">*</span></label>
+                            <input type="number" id="ocr-qty" class="w-full border-b-2 border-blue-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition bg-blue-50 px-2 rounded-t-md" value="${safeQty}" placeholder="ระบุจำนวน">
+                        </div>
                     </div>
                 </div>
                 ${verifyHtml}
@@ -661,6 +663,7 @@ function changeJob() {
         if (typeof extractedModel !== 'undefined') extractedModel = "";
         if (typeof extractedLot !== 'undefined') extractedLot = "";
         if (typeof extractedDate !== 'undefined') extractedDate = "";
+        if (typeof extractedQty !== 'undefined') extractedQty = ""; // เคลียร์ค่าจำนวน
     } catch(e) {}
     
     stopCamera(); 
@@ -668,6 +671,12 @@ function changeJob() {
 }
 
 function submitToQC() {
+    // ตรวจสอบว่ากรอกจำนวนหรือยัง
+    const qtyInput = document.getElementById('ocr-qty');
+    if (qtyInput && !qtyInput.value.trim()) {
+        return showCustomAlert("กรุณาระบุ 'จำนวน (Print Qty)' ก่อนส่งให้ QC ตรวจสอบ");
+    }
+
     const btn = document.getElementById('submit-btn');
     btn.innerHTML = `<div class="loader loader-white"></div> <span>กำลังเตรียมรูปภาพ...</span>`;
     btn.disabled = true;
@@ -696,6 +705,7 @@ function submitToQC() {
             model: document.getElementById('ocr-model').value,
             lot: document.getElementById('ocr-lot').value,
             date: document.getElementById('ocr-date').value,
+            qty: qtyInput ? qtyInput.value.trim() : '', // แนบค่าจำนวนไปกับ API ด้วย
             operator: currentUser.name,
             image: reducedImageBase64
         };
@@ -727,17 +737,14 @@ function submitToQC() {
 // RENDER VIEWS (INBOX - EMAIL STYLE)
 // ==========================================
 
-// กำหนด State สำหรับ Inbox (เพื่อให้จำค่าล่าสุดเวลาเปิดไปหน้าอื่นแล้วกลับมา)
 let currentInboxFilter = 'pending'; // 'pending' | 'processed'
 let inboxSearchTerm = '';
 
-// ฟังก์ชันเปลี่ยน Tab ใน Inbox
 function setInboxFilter(filter) {
     currentInboxFilter = filter;
     renderMainApp();
 }
 
-// ฟังก์ชันค้นหาข้อมูล
 function executeInboxSearch() {
     const input = document.getElementById('inbox-search-input');
     if (input) {
@@ -749,19 +756,15 @@ function executeInboxSearch() {
 function renderInboxView(container) {
     let baseTickets = dbTickets;
     
-    // กรองข้อมูลเบื้องต้นตามสิทธิ์: Operator เห็นเฉพาะของตัวเอง
     if (currentUser.role === 'operator') {
         baseTickets = dbTickets.filter(t => t.operator === currentUser.name);
     }
 
-    // คำนวณจำนวนตั๋วทั้งหมดในแต่ละหมวดหมู่ (ก่อนถูกค้นหา)
     let pendingCount = baseTickets.filter(t => t.status === 'pending').length;
     let processedCount = baseTickets.filter(t => t.status !== 'pending').length;
 
-    // กรองข้อมูลตาม Tab ที่เลือก (รอตรวจสอบ vs ดำเนินการแล้ว)
     let displayTickets = baseTickets.filter(t => currentInboxFilter === 'pending' ? t.status === 'pending' : t.status !== 'pending');
 
-    // กรองข้อมูลตามคำค้นหา (เผื่ออนาคตข้อมูลเยอะๆ)
     if (inboxSearchTerm) {
         displayTickets = displayTickets.filter(t => 
             t.jobOrder.toLowerCase().includes(inboxSearchTerm) || 
@@ -770,18 +773,15 @@ function renderInboxView(container) {
         );
     }
 
-    // จัดเรียงรายการ: ใหม่ล่าสุดขึ้นก่อน
     displayTickets.sort((a, b) => b.id.localeCompare(a.id));
 
     let html = `
         <div class="max-w-2xl mx-auto flex flex-col h-full fade-in">
-            <!-- ส่วนหัว และ แถบค้นหา / Tabs -->
             <div class="bg-white px-4 pt-4 pb-2 shadow-sm z-10 sticky top-0">
                 <h2 class="font-bold text-gray-800 text-lg mb-3 flex items-center">
                     <i class="fa-solid fa-envelope-open-text text-blue-500 mr-2 text-xl"></i> กล่องข้อความ
                 </h2>
                 
-                <!-- ช่องค้นหา (Search System) -->
                 <div class="relative flex gap-2 mb-3">
                     <div class="relative flex-1">
                         <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
@@ -793,7 +793,6 @@ function renderInboxView(container) {
                     <button onclick="executeInboxSearch()" class="bg-gray-800 text-white px-4 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-700 transition">ค้นหา</button>
                 </div>
 
-                <!-- Tabs (แบบ Email Style) -->
                 <div class="flex bg-gray-100 p-1 rounded-lg">
                     <button onclick="setInboxFilter('pending')" class="flex-1 py-2 text-sm font-bold rounded-md transition flex justify-center items-center gap-1.5 ${currentInboxFilter === 'pending' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
                         รอตรวจสอบ 
@@ -806,7 +805,6 @@ function renderInboxView(container) {
                 </div>
             </div>
 
-            <!-- พื้นที่แสดงรายการตั๋ว -->
             <div class="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
     `;
     
@@ -826,10 +824,12 @@ function renderInboxView(container) {
         let statusIcon = t.status === 'pending' ? '<i class="fa-solid fa-clock"></i> รอตรวจ' : 
                          t.status === 'approved' ? '<i class="fa-solid fa-check-circle"></i> ผ่าน' : '<i class="fa-solid fa-times-circle"></i> ปฏิเสธ';
 
+        // ใช้ฟังก์ชันแปลงวันที่ ที่เราสร้างขึ้นใหม่
+        let cleanTime = formatDisplayDate(t.timestamp).split(' ')[1] || formatDisplayDate(t.timestamp);
+
         html += `
             <div onclick="openTicket('${t.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${t.status === 'pending' ? 'border-yellow-500' : t.status === 'approved' ? 'border-green-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3 transition">
                 <div class="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200 shadow-inner">
-                    <!-- 🛡️ เรียกใช้ฟังก์ชันแปลงลิงก์รูปตรงนี้ -->
                     <img src="${getDriveImageUrl(t.imageUrl)}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150'">
                 </div>
                 <div class="flex-1 overflow-hidden">
@@ -839,7 +839,7 @@ function renderInboxView(container) {
                     </div>
                     <div class="text-sm font-bold text-gray-800 mt-1 truncate">Model: ${t.model}</div>
                     <div class="text-[10px] text-gray-500 mt-1 truncate flex items-center gap-1">
-                        <i class="fa-solid fa-user-circle"></i> ${t.operator} • ${t.timestamp.split(' ')[1]}
+                        <i class="fa-solid fa-user-circle"></i> ${t.operator} • ${cleanTime}
                     </div>
                 </div>
             </div>`;
@@ -894,7 +894,6 @@ function renderTicketDetail(container) {
                     <span class="font-bold ${statusColor} uppercase text-sm flex-shrink-0">${t.status}</span>
                 </div>
                 <div class="p-4 bg-black flex justify-center">
-                    <!-- 🛡️ เรียกใช้ฟังก์ชันแปลงลิงก์รูปตรงนี้ -->
                     <img src="${getDriveImageUrl(t.imageUrl)}" class="max-h-80 object-contain rounded border border-gray-700" onerror="this.src='https://via.placeholder.com/400x300?text=Image+Not+Found'">
                 </div>
                 <div class="p-5 space-y-4">
@@ -904,18 +903,24 @@ function renderTicketDetail(container) {
                             <div class="text-gray-500">Model:</div><div class="col-span-2 font-bold text-gray-800">${t.model}</div>
                             <div class="text-gray-500 mt-1">Lot No:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.lot}</div>
                             <div class="text-gray-500 mt-1">วันที่ผลิต:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.date}</div>
+                            <div class="text-gray-500 mt-1">จำนวน:</div><div class="col-span-2 font-bold text-blue-700 mt-1">${t.qty || '-'}</div>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4 text-xs text-gray-500 border-t pt-4">
-                        <div><span class="block font-bold text-gray-700">ส่งเรื่อง (OP):</span>${t.operator} <br> ${t.timestamp}</div>
-                        ${t.status !== 'pending' ? `<div><span class="block font-bold text-gray-700">ตรวจสอบ (QC):</span>${t.qc} <br> ${t.actionTime}</div>` : ''}
+                        <div><span class="block font-bold text-gray-700">ส่งเรื่อง (OP):</span>${t.operator} <br> ${formatDisplayDate(t.timestamp)}</div>
+                        ${t.status !== 'pending' ? `<div><span class="block font-bold text-gray-700">ตรวจสอบ (QC):</span>${t.qc} <br> ${formatDisplayDate(t.actionTime)}</div>` : ''}
                     </div>
                     ${t.rejectReason ? `<div class="bg-red-50 text-red-700 p-3 rounded border border-red-200 text-sm mt-3"><strong>สาเหตุที่ปฏิเสธ:</strong> ${t.rejectReason}</div>` : ''}
                     
                     ${canApprove ? `
-                    <div class="flex gap-3 pt-4 border-t mt-4">
-                        <button onclick="processTicket('approved')" class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2"><i class="fa-solid fa-check-circle"></i> อนุมัติ (PASS)</button>
-                        <button onclick="processTicket('rejected')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2"><i class="fa-solid fa-times-circle"></i> ปฏิเสธ (NG)</button>
+                    <div class="flex flex-col pt-4 border-t mt-4">
+                        <div class="text-center text-xs text-gray-500 mb-3 bg-gray-100 p-2 rounded">
+                            คุณกำลังจะตรวจสอบเอกสารนี้ในชื่อ <strong>${currentUser.name}</strong>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="processTicket('approved')" class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2"><i class="fa-solid fa-check-circle"></i> อนุมัติ (PASS)</button>
+                            <button onclick="processTicket('rejected')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2"><i class="fa-solid fa-times-circle"></i> ปฏิเสธ (NG)</button>
+                        </div>
                     </div>
                     ` : ''}
                 </div>
@@ -937,11 +942,10 @@ function initApp() {
             
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
             
-            // ขอสิทธิ์แจ้งเตือนกรณีที่เคยเข้าสู่ระบบค้างไว้
             requestNotificationPermission();
             
             fetchInitialData();
-            startAutoFetch(); // เริ่มทำงาน Auto Refresh ทุก 30 วินาที
+            startAutoFetch(); 
 
         } catch (e) {
             localStorage.removeItem('qc_app_user');
