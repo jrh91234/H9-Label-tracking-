@@ -6,7 +6,7 @@ let extractedQty = ""; // ตัวแปรสำหรับเก็บค่
 async function startCamera() {
     try {
         if (!stream) {
-            // บังคับขอกล้องความละเอียดสูง (Full HD)
+            // ขอสิทธิ์และเปิดกล้องหลัง
             const constraints = {
                 video: { 
                     facingMode: "environment",
@@ -18,19 +18,34 @@ async function startCamera() {
             stream = await navigator.mediaDevices.getUserMedia(constraints);
             
             // พยายามเปิดระบบ Auto Focus (Continuous)
-            const track = stream.getVideoTracks()[0];
-            const capabilities = track.getCapabilities();
-            if (capabilities && capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
-                await track.applyConstraints({
-                    advanced: [{ focusMode: "continuous" }]
-                });
+            try {
+                const track = stream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities();
+                if (capabilities && capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+                    await track.applyConstraints({
+                        advanced: [{ focusMode: "continuous" }]
+                    });
+                }
+            } catch (focusErr) {
+                console.log("อุปกรณ์ไม่รองรับ Auto Focus หรือเกิดข้อผิดพลาดในการตั้งค่า:", focusErr);
             }
         }
+        
         const video = document.getElementById('video');
-        if(video) video.srcObject = stream;
+        if(video) {
+            video.srcObject = stream;
+            
+            // 🟢 [แก้ไข] บังคับให้ Video เล่นทันทีที่โหลดข้อมูลกล้องเสร็จ (แก้ปัญหากล้องดำ)
+            video.onloadedmetadata = () => {
+                video.play().catch(e => {
+                    console.error("ไม่สามารถเล่นวิดีโอได้:", e);
+                });
+            };
+        }
     } catch (err) { 
-        console.error("Camera error", err); 
-        showCustomAlert("ไม่สามารถเปิดกล้องได้ หรืออุปกรณ์ไม่รองรับการตั้งค่ากล้อง");
+        console.error("Camera error:", err); 
+        // 🟢 [แก้ไข] แจ้งเตือนให้ชัดเจนขึ้นว่าอาจจะเกิดจาก HTTPS หรือไม่ได้ให้สิทธิ์
+        showCustomAlert("ไม่สามารถเปิดกล้องได้! กรุณาตรวจสอบว่า:<br>1. คุณได้กดยอมรับสิทธิ์การใช้กล้องแล้ว<br>2. เว็บไซต์นี้ใช้งานผ่าน HTTPS (มีรูปแม่กุญแจ)");
     }
 }
 
@@ -177,7 +192,7 @@ function runSmartVerification(isFromInput = false) {
     const currentMonth = now.getMonth();
     const currentDate = now.getDate();
     
-    // 🟢 คำนวณวันในสัปดาห์: 1 = วันอาทิตย์, 2 = วันจันทร์, ..., 7 = วันเสาร์
+    // คำนวณวันในสัปดาห์: 1 = วันอาทิตย์, 2 = วันจันทร์, ..., 7 = วันเสาร์
     let currentDayOfWeek = now.getDay() + 1;
     const dayNames = ["", "อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
 
@@ -222,10 +237,9 @@ function runSmartVerification(isFromInput = false) {
     if (lotParts.length >= 6 && lotParts[0] === 'TH') {
         const lotYear = parseInt(lotParts[1], 10);
         const lotWeek = parseInt(lotParts[2], 10);
-        const lotDay = parseInt(lotParts[3], 10); // ดึงตัวเลขวันที่ในสัปดาห์ของ Lot
+        const lotDay = parseInt(lotParts[3], 10);
         const lotShift = lotParts[4].toUpperCase();
 
-        // เช็คปี
         if (lotYear === expectedLotYear) {
             messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> ปีใน Lot (${lotYear}) ตรงกับปีปัจจุบัน</span>`);
         } else { 
@@ -233,7 +247,6 @@ function runSmartVerification(isFromInput = false) {
             isPass = false; 
         }
 
-        // เช็คสัปดาห์
         if (lotWeek === currentWeek) {
             messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> สัปดาห์ใน Lot (${lotWeek}) ตรงสัปดาห์ปัจจุบัน</span>`);
         } else {
@@ -241,7 +254,6 @@ function runSmartVerification(isFromInput = false) {
             isPass = false;
         }
 
-        // เช็ควันในสัปดาห์ (1=อาทิตย์ ... 7=เสาร์)
         if (lotDay === currentDayOfWeek) {
             messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันในสัปดาห์ (${lotDay}) ตรงกับวันนี้ (วัน${dayNames[currentDayOfWeek]})</span>`);
         } else {
@@ -249,7 +261,6 @@ function runSmartVerification(isFromInput = false) {
             isPass = false;
         }
 
-        // 🟢 เช็คกะ (Admin ส่งได้อิสระ ไม่ต้องเช็คชื่อ / Operator ต้องเช็ค)
         if (lotShift === 'A' || lotShift === 'B') {
             const isAdmin = currentUser && currentUser.role === 'admin';
             const isShiftMatch = currentUser && currentUser.name.toUpperCase().includes(lotShift);
@@ -273,7 +284,6 @@ function runSmartVerification(isFromInput = false) {
 
     verificationResult = { isPass, messages };
 
-    // รักษาสถานะเคอร์เซอร์กรณีที่ผู้ใช้พิมพ์แก้เอง
     if (isFromInput) {
         const activeId = document.activeElement ? document.activeElement.id : null;
         let selectionStart = 0, selectionEnd = 0;
