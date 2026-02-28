@@ -366,35 +366,60 @@ function changeJob() {
 
 function submitToQC() {
     const btn = document.getElementById('submit-btn');
-    btn.innerHTML = `<div class="loader loader-white"></div> <span>กำลังบันทึก...</span>`;
+    btn.innerHTML = `<div class="loader loader-white"></div> <span>กำลังเตรียมรูปภาพ...</span>`;
     btn.disabled = true;
 
-    const newTicket = {
-        jobOrder: currentSelectedJob,
-        model: document.getElementById('ocr-model').value,
-        lot: document.getElementById('ocr-lot').value,
-        date: document.getElementById('ocr-date').value,
-        operator: currentUser.name,
-        image: capturedImageBase64
-    };
+    // ทำการ Resize และลดคุณภาพรูปลงก่อนส่งไป Google Drive
+    const img = new Image();
+    img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800; // ลดขนาดความกว้างลงเหลือไม่เกิน 800px เพื่อประหยัดพื้นที่
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > MAX_WIDTH) {
+            height = Math.floor(height * (MAX_WIDTH / width));
+            width = MAX_WIDTH;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // บีบอัดคุณภาพเหลือ 60% (.6)
+        const reducedImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
 
-    fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: "saveTicket", payload: newTicket })
-    })
-    .then(res => res.json())
-    .then(res => {
-        if (res.success) {
-            showCustomAlert(`ส่งข้อมูลให้ QC ตรวจสอบสำเร็จ!`, true);
-            capturedImageBase64 = null; verificationResult = null;
-            fetchTickets(); switchTab('inbox');
-        } else throw new Error(res.error);
-    })
-    .catch(err => {
-        showCustomAlert("เกิดข้อผิดพลาดในการบันทึก: " + err.message);
-        btn.disabled = false;
-        btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC`;
-    });
+        const newTicket = {
+            jobOrder: currentSelectedJob,
+            model: document.getElementById('ocr-model').value,
+            lot: document.getElementById('ocr-lot').value,
+            date: document.getElementById('ocr-date').value,
+            operator: currentUser.name,
+            image: reducedImageBase64
+        };
+
+        btn.innerHTML = `<div class="loader loader-white"></div> <span>กำลังบันทึก...</span>`;
+
+        fetch(API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: "saveTicket", payload: newTicket })
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                showCustomAlert(`ส่งข้อมูลให้ QC ตรวจสอบสำเร็จ!`, true);
+                capturedImageBase64 = null; verificationResult = null;
+                fetchTickets(); switchTab('inbox');
+            } else throw new Error(res.error);
+        })
+        .catch(err => {
+            showCustomAlert("เกิดข้อผิดพลาดในการบันทึก: " + err.message);
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC`;
+        });
+    };
+    img.src = capturedImageBase64;
 }
 
 function renderInboxView(container) {
