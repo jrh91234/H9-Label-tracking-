@@ -13,6 +13,12 @@ function updateBadgeAndNotify(tickets) {
     if (!currentUser) return;
 
     let pendingTickets = tickets.filter(t => t.status === 'pending');
+    
+    // 🛡️ ซ่อนรายการทดสอบสำหรับคนที่ไม่ใช่ Admin
+    if (currentUser.role !== 'admin') {
+        pendingTickets = pendingTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
+    }
+
     if (currentUser.role === 'operator') {
         pendingTickets = pendingTickets.filter(t => t.operator === currentUser.name);
     }
@@ -423,6 +429,12 @@ function renderMainApp() {
             if (inboxEndDate && tDate > inboxEndDate) return false;
             return true;
         });
+        
+        // 🛡️ ซ่อนรายการทดสอบสำหรับคนที่ไม่ใช่ Admin
+        if (currentUser.role !== 'admin') {
+            baseTickets = baseTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
+        }
+
         if (currentUser.role === 'operator') {
             baseTickets = baseTickets.filter(t => t.operator === currentUser.name);
         }
@@ -737,6 +749,15 @@ function renderScanView(container) {
                 </h4>
                 <ul class="text-xs space-y-1.5 text-gray-700">${msgList}</ul>
             </div>
+            
+            <!-- 🛡️ กล่องตัวเลือกโหมดทดสอบ -->
+            <div class="mt-4 flex items-center justify-between bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                <label for="test-mode-toggle" class="text-sm font-bold text-yellow-800 flex items-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-flask text-yellow-600"></i> ส่งเป็นข้อมูลทดสอบระบบ
+                </label>
+                <input type="checkbox" id="test-mode-toggle" class="w-5 h-5 accent-yellow-600 cursor-pointer">
+            </div>
+
             <div id="submit-action-container">
                 <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" ${!verificationResult.isPass ? 'disabled' : ''} id="submit-btn">
                     <i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC
@@ -838,6 +859,9 @@ function submitToQC() {
         return showCustomAlert("กรุณาระบุ 'จำนวน (Print Qty)' ก่อนส่งให้ QC ตรวจสอบ");
     }
 
+    const isTestMode = document.getElementById('test-mode-toggle') && document.getElementById('test-mode-toggle').checked;
+    const finalJobOrder = isTestMode ? `[TEST] ${currentSelectedJob}` : currentSelectedJob;
+
     const btnContainer = document.getElementById('submit-action-container');
     if(btnContainer) {
         btnContainer.innerHTML = `<div class="w-full text-center py-4 text-blue-600 font-bold bg-blue-50 rounded-lg mt-4 border border-blue-200"><div class="loader loader-blue mb-2"></div> กำลังอัปโหลดข้อมูลสู่ Cloud...</div>`;
@@ -863,7 +887,7 @@ function submitToQC() {
         const reducedImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
 
         const newTicket = {
-            jobOrder: currentSelectedJob,
+            jobOrder: finalJobOrder, // ส่ง JobOrder ที่เติม [TEST] หากอยู่ในโหมดทดสอบ
             model: document.getElementById('ocr-model').value,
             lot: document.getElementById('ocr-lot').value,
             date: document.getElementById('ocr-date').value,
@@ -879,7 +903,7 @@ function submitToQC() {
         .then(res => res.json())
         .then(res => {
             if (res.success) {
-                showCustomAlert(`ส่งข้อมูลให้ QC ตรวจสอบสำเร็จ!`, true);
+                showCustomAlert(`ส่งข้อมูล${isTestMode ? 'ทดสอบ' : ''}ให้ QC ตรวจสอบสำเร็จ!`, true);
                 capturedImageBase64 = null; verificationResult = null;
                 fetchTickets(); switchTab('inbox');
             } else throw new Error(res.error);
@@ -927,8 +951,13 @@ function executeInboxDateFilter() {
 function renderInboxView(container) {
     let baseTickets = dbTickets;
     
+    // 🛡️ ซ่อนรายการทดสอบสำหรับคนที่ไม่ใช่ Admin
+    if (currentUser.role !== 'admin') {
+        baseTickets = baseTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
+    }
+
     if (currentUser.role === 'operator') {
-        baseTickets = dbTickets.filter(t => t.operator === currentUser.name);
+        baseTickets = baseTickets.filter(t => t.operator === currentUser.name);
     }
 
     // กรองข้อมูลตามช่วงวันที่
@@ -1018,6 +1047,9 @@ function renderInboxView(container) {
 
         let cleanTime = formatDisplayDate(t.timestamp).split(' ')[1] || formatDisplayDate(t.timestamp);
 
+        // ไฮไลต์ให้เห็นว่าเป็นข้อมูลทดสอบ (สำหรับ Admin)
+        let jobDisplay = t.jobOrder.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${t.jobOrder.replace('[TEST] ', '')}` : t.jobOrder;
+
         html += `
             <div onclick="openTicket('${t.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${t.status === 'pending' ? 'border-yellow-500' : t.status === 'approved' ? 'border-green-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3 transition">
                 <div class="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200 shadow-inner">
@@ -1025,7 +1057,7 @@ function renderInboxView(container) {
                 </div>
                 <div class="flex-1 overflow-hidden">
                     <div class="flex justify-between items-start">
-                        <span class="font-bold text-blue-800 text-sm truncate pr-2">${t.jobOrder}</span>
+                        <span class="font-bold text-blue-800 text-sm truncate pr-2">${jobDisplay}</span>
                         <span class="text-[10px] px-2 py-0.5 rounded-full border ${statusColor} font-medium flex-shrink-0">${statusIcon}</span>
                     </div>
                     <div class="text-sm font-bold text-gray-800 mt-1 truncate">Model: ${t.model}</div>
@@ -1076,6 +1108,8 @@ function renderTicketDetail(container) {
     let t = selectedTicket;
     let statusColor = t.status === 'pending' ? 'text-yellow-600' : t.status === 'approved' ? 'text-green-600' : 'text-red-600';
     let canApprove = (currentUser.role === 'qc' || currentUser.role === 'admin' || currentUser.role === 'supervisor') && t.status === 'pending';
+    
+    let jobDisplay = t.jobOrder.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${t.jobOrder.replace('[TEST] ', '')}` : t.jobOrder;
 
     container.innerHTML = `
         <div class="max-w-2xl mx-auto fade-in pb-20 p-4">
@@ -1083,7 +1117,7 @@ function renderTicketDetail(container) {
             <div class="bg-white rounded-xl shadow-md overflow-hidden">
                 <div class="p-4 border-b flex justify-between items-center bg-gray-50">
                     <div class="overflow-hidden pr-2">
-                        <h2 class="font-bold text-lg text-blue-800 truncate">${t.jobOrder}</h2>
+                        <h2 class="font-bold text-lg text-blue-800 truncate">${jobDisplay}</h2>
                         <span class="text-[10px] text-gray-500 font-mono">Ref: ${t.id}</span>
                     </div>
                     <span class="font-bold ${statusColor} uppercase text-sm flex-shrink-0">${t.status}</span>
