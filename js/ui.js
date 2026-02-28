@@ -733,7 +733,7 @@ function renderTicketDetail(container) {
                     ` : ''}
                 </div>
             </div>
-        </div>`;
+        </div>`
 }
 
 // ==========================================
