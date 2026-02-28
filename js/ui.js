@@ -293,9 +293,27 @@ function handleLogin() {
 }
 
 function logout() { 
+    const html = `
+        <div id="logout-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4 fade-in">
+            <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full text-center">
+                <i class="fa-solid fa-arrow-right-from-bracket text-red-500 text-5xl mb-4"></i>
+                <h3 class="font-bold text-gray-800 text-lg mb-2">ออกจากระบบ</h3>
+                <p class="text-sm text-gray-600 mb-6">คุณต้องการออกจากระบบใช่หรือไม่?</p>
+                <div class="flex gap-3">
+                    <button onclick="document.getElementById('logout-modal').remove()" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition">ยกเลิก</button>
+                    <button onclick="executeLogout()" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition flex justify-center items-center">ยืนยัน</button>
+                </div>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function executeLogout() {
+    const modal = document.getElementById('logout-modal');
+    if (modal) modal.remove();
     currentUser = null; 
     localStorage.removeItem('qc_app_user');
-    stopCamera(); 
+    if (typeof stopCamera === 'function') stopCamera(); 
     stopAutoFetch(); 
     render(); 
 }
@@ -303,6 +321,25 @@ function logout() {
 // ==========================================
 // DATA FETCHING 
 // ==========================================
+
+// ฟังก์ชันสร้าง Action ของปุ่ม Refresh
+function handleRefresh(event) {
+    if (event && event.currentTarget) {
+        const icon = event.currentTarget.querySelector('i');
+        if (icon) {
+            icon.classList.add('fa-spin'); // เพิ่ม Animation หมุน
+            // หน่วงเวลาให้หยุดหมุนหลังจาก 1 วินาที
+            setTimeout(() => { icon.classList.remove('fa-spin'); }, 1000);
+        }
+    }
+    
+    if (currentTab === 'admin') {
+        fetchUsersList(); 
+    } else {
+        fetchInitialData(); 
+    }
+}
+
 function fetchInitialData() {
     isLoadingJobs = true;
     fetch(`${API_URL}?action=getJobs`)
@@ -404,7 +441,8 @@ function renderMainApp() {
                     <span class="font-bold text-lg hidden sm:inline">Label QC</span>
                 </div>
                 <div class="flex items-center space-x-3 sm:space-x-4">
-                    <button onclick="currentTab === 'admin' ? fetchUsersList() : fetchTickets()" class="text-blue-500 hover:text-blue-700" title="รีเฟรชข้อมูล"><i class="fa-solid fa-rotate"></i></button>
+                    <!-- 🔄 ปุ่มรีเฟรชที่มี Animation -->
+                    <button onclick="handleRefresh(event)" class="text-blue-500 hover:text-blue-700 transition" title="รีเฟรชข้อมูล"><i class="fa-solid fa-rotate"></i></button>
                     <!-- 🔑 ปุ่มแก้ไขรหัสผ่าน -->
                     <button onclick="showChangePasswordModal()" class="text-gray-400 hover:text-blue-600 transition" title="เปลี่ยนรหัสผ่าน"><i class="fa-solid fa-key"></i></button>
                     <div class="text-right ml-1 border-l pl-3 border-gray-200">
