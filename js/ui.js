@@ -1,4 +1,65 @@
 // ==========================================
+// NOTIFICATIONS & PWA BADGE LOGIC
+// ==========================================
+let autoFetchInterval = null;
+
+function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
+    }
+}
+
+function updateBadgeAndNotify(tickets) {
+    if (!currentUser) return;
+
+    // กรองหาเฉพาะรายการที่รอตรวจสอบ
+    let pendingTickets = tickets.filter(t => t.status === 'pending');
+    if (currentUser.role === 'operator') {
+        pendingTickets = pendingTickets.filter(t => t.operator === currentUser.name);
+    }
+
+    const pendingCount = pendingTickets.length;
+
+    // 1. อัปเดตตัวเลขแจ้งเตือนบนไอคอนแอป (App Badge)
+    if ('setAppBadge' in navigator) {
+        if (pendingCount > 0) {
+            navigator.setAppBadge(pendingCount).catch(err => console.log("Badge error:", err));
+        } else {
+            navigator.clearAppBadge().catch(err => console.log("Clear badge error:", err));
+        }
+    }
+
+    // 2. เด้ง Push Notification เมื่อมีรายการใหม่
+    const storedCount = parseInt(localStorage.getItem('qc_pending_count') || '0');
+    if (pendingCount > storedCount && currentUser.role !== 'operator') {
+        const newItemsCount = pendingCount - storedCount;
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Smart Label QC', {
+                body: `มีรายการรอตรวจสอบใหม่ ${newItemsCount} รายการ!`,
+                icon: 'https://cdn-icons-png.flaticon.com/512/7516/7516738.png',
+                badge: 'https://cdn-icons-png.flaticon.com/512/7516/7516738.png'
+            });
+        }
+    }
+    
+    // บันทึกจำนวนล่าสุดไว้เทียบในรอบถัดไป
+    localStorage.setItem('qc_pending_count', pendingCount.toString());
+}
+
+function startAutoFetch() {
+    if (autoFetchInterval) clearInterval(autoFetchInterval);
+    // รีเฟรชข้อมูลเบื้องหลังอัตโนมัติ ทุกๆ 30 วินาที
+    autoFetchInterval = setInterval(() => {
+        if (currentUser) fetchTickets();
+    }, 30000); 
+}
+
+function stopAutoFetch() {
+    if (autoFetchInterval) clearInterval(autoFetchInterval);
+}
+
+
+// ==========================================
 // CUSTOM MODALS & HELPERS
 // ==========================================
 function showCustomAlert(message, isSuccess = false) {
@@ -100,6 +161,9 @@ function handleLogin() {
     const btn = document.getElementById('login-btn');
     btn.innerHTML = `<div class="loader loader-white"></div> <span>กำลังตรวจสอบ...</span>`;
     btn.disabled = true;
+    
+    // ขออนุญาตแจ้งเตือนเมื่อผู้ใช้มี Action
+    requestNotificationPermission();
 
     fetch(API_URL, {
         method: 'POST',
@@ -112,7 +176,9 @@ function handleLogin() {
             localStorage.setItem('qc_app_user', JSON.stringify(currentUser)); 
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
             currentSelectedJob = null; 
+            
             fetchInitialData();
+            startAutoFetch(); // เริ่มทำงาน Auto Refresh
             render();
         } else {
             showCustomAlert(res.error || "ล็อกอินไม่สำเร็จ");
@@ -131,6 +197,7 @@ function logout() {
     currentUser = null; 
     localStorage.removeItem('qc_app_user');
     stopCamera(); 
+    stopAutoFetch(); // หยุด Auto Refresh
     render(); 
 }
 
@@ -159,6 +226,7 @@ function fetchTickets() {
         .then(res => res.json())
         .then(data => {
             dbTickets = data || [];
+            updateBadgeAndNotify(dbTickets); // อัปเดตแจ้งเตือนและตัวเลขที่ไอคอน
             if(currentTab === 'inbox') renderMainApp();
         })
         .catch(err => console.error("โหลดข้อมูล Inbox ไม่สำเร็จ: ", err));
@@ -867,9 +935,14 @@ function initApp() {
                 throw new Error("Invalid Session Data");
             }
             
-            // ตั้งค่า Tab ตาม Role ปัจจุบัน
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
+            
+            // ขอสิทธิ์แจ้งเตือนกรณีที่เคยเข้าสู่ระบบค้างไว้
+            requestNotificationPermission();
+            
             fetchInitialData();
+            startAutoFetch(); // เริ่มทำงาน Auto Refresh ทุก 30 วินาที
+
         } catch (e) {
             localStorage.removeItem('qc_app_user');
             currentUser = null;
