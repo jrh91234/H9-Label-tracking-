@@ -9,11 +9,13 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzW5QPUcGiI-I5xww5d465M
 // ==========================================
 let currentUser = null; 
 let dbJobs = []; 
+let dbBatches = []; // 🟢 ตัวแปรเก็บคิว Batch ที่รอตรวจ
 let dbTickets = []; 
 
 let currentTab = 'inbox'; 
 let selectedTicket = null;
 let currentSelectedJob = null;
+let currentSelectedBatch = null; // 🟢 ตัวแปรเก็บค่า Batch ที่เลือก
 
 let stream = null;
 let capturedImageBase64 = null;
@@ -25,3 +27,4 @@ let isLoadingJobs = false;
 let extractedModel = "";
 let extractedLot = "";
 let extractedDate = "";
+let extractedQty = "";
