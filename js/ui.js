@@ -19,6 +19,7 @@ function updateBadgeAndNotify(tickets) {
 
     const pendingCount = pendingTickets.length;
 
+    // อัปเดตตัวเลขแจ้งเตือนบนไอคอนแอป (App Badge)
     if ('setAppBadge' in navigator) {
         if (pendingCount > 0) {
             navigator.setAppBadge(pendingCount).catch(err => console.log("Badge error:", err));
@@ -27,6 +28,7 @@ function updateBadgeAndNotify(tickets) {
         }
     }
 
+    // เด้ง Push Notification เมื่อมีรายการใหม่
     const storedCount = parseInt(localStorage.getItem('qc_pending_count') || '0');
     if (pendingCount > storedCount && currentUser.role !== 'operator') {
         const newItemsCount = pendingCount - storedCount;
@@ -44,6 +46,7 @@ function updateBadgeAndNotify(tickets) {
 
 function startAutoFetch() {
     if (autoFetchInterval) clearInterval(autoFetchInterval);
+    // รีเฟรชอัตโนมัติ ทุกๆ 30 วินาที
     autoFetchInterval = setInterval(() => {
         if (currentUser) fetchTickets();
     }, 30000); 
@@ -93,7 +96,7 @@ function confirmReject() {
     executeProcessTicket('rejected', reason);
 }
 
-// 🛡️ ฟังก์ชันสำหรับแสดง Modal เปลี่ยนรหัสผ่านตัวเอง
+// 🛡️ Modal เปลี่ยนรหัสผ่านตัวเอง
 function showChangePasswordModal() {
     const html = `
         <div id="change-password-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4 fade-in">
@@ -152,7 +155,7 @@ function executeChangePassword() {
     });
 }
 
-// ฟังก์ชันสำหรับแสดงรูปภาพแบบเต็มจอ
+// ฟังก์ชันสำหรับแสดงรูปภาพแบบเต็มจอ (HD)
 function showImageModal(imageUrl) {
     if (!imageUrl || imageUrl.includes('placeholder')) return;
     const html = `
@@ -167,7 +170,7 @@ function showImageModal(imageUrl) {
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
-// แปลงลิงก์ Google Drive ให้แสดงผลผ่าน Thumbnail API
+// แปลงลิงก์ Google Drive ให้แสดงผลผ่าน Thumbnail API ป้องกันรูปแตก
 function getDriveImageUrl(url, size = 'w800') {
     if (!url) return 'https://via.placeholder.com/150';
     const match = url.match(/id=([a-zA-Z0-9_-]+)/) || url.match(/d\/([a-zA-Z0-9_-]+)/);
@@ -177,13 +180,13 @@ function getDriveImageUrl(url, size = 'w800') {
     return url;
 }
 
-// ตัวจัดการวันที่และเวลา
+// ตัวจัดการวันที่ 
 function formatDisplayDate(dateStr) {
     if (!dateStr) return '';
     return String(dateStr).replace('T', ' ').replace('.000Z', '');
 }
 
-// ดึงค่าวันที่วันนี้รูปแบบ YYYY-MM-DD สำหรับ input type="date"
+// ดึงค่าวันที่วันนี้รูปแบบ YYYY-MM-DD
 function getTodayDateString() {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -192,7 +195,7 @@ function getTodayDateString() {
     return `${yyyy}-${mm}-${dd}`;
 }
 
-// แปลงวันที่แบบ dd/MM/yyyy HH:mm:ss กลับเป็น YYYY-MM-DD เพื่อใช้เทียบค่าเวลาค้นหา
+// แปลงวันที่แบบ dd/MM/yyyy HH:mm:ss กลับเป็น YYYY-MM-DD เพื่อใช้เทียบค่า
 function parseTicketDate(timestampStr) {
     if (!timestampStr) return null;
     if (timestampStr.includes('/')) {
@@ -268,7 +271,7 @@ function handleLogin() {
     .then(res => {
         if (res.success) {
             currentUser = res.data; 
-            currentUser.username = user; // 🛡️ บันทึก Username ไว้ใช้สำหรับกรณีต้องการเปลี่ยนรหัสผ่าน
+            currentUser.username = user; 
             localStorage.setItem('qc_app_user', JSON.stringify(currentUser)); 
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
             currentSelectedJob = null; 
@@ -374,7 +377,6 @@ function switchTab(tab) {
 function renderMainApp() {
     const appDiv = document.getElementById('app');
     
-    // คำนวณจำนวนตั๋วรอตรวจ
     let pendingCount = 0;
     if (currentUser) {
         let baseTickets = dbTickets.filter(t => {
@@ -697,9 +699,11 @@ function renderScanView(container) {
                 </h4>
                 <ul class="text-xs space-y-1.5 text-gray-700">${msgList}</ul>
             </div>
-            <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" ${!verificationResult.isPass ? 'disabled' : ''} id="submit-btn">
-                <i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC
-            </button>
+            <div id="submit-action-container">
+                <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" ${!verificationResult.isPass ? 'disabled' : ''} id="submit-btn">
+                    <i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC
+                </button>
+            </div>
         `;
     }
 
@@ -796,9 +800,10 @@ function submitToQC() {
         return showCustomAlert("กรุณาระบุ 'จำนวน (Print Qty)' ก่อนส่งให้ QC ตรวจสอบ");
     }
 
-    const btn = document.getElementById('submit-btn');
-    btn.innerHTML = `<div class="loader loader-white"></div> <span>กำลังเตรียมรูปภาพ...</span>`;
-    btn.disabled = true;
+    const btnContainer = document.getElementById('submit-action-container');
+    if(btnContainer) {
+        btnContainer.innerHTML = `<div class="w-full text-center py-4 text-blue-600 font-bold bg-blue-50 rounded-lg mt-4 border border-blue-200"><div class="loader loader-blue mb-2"></div> กำลังอัปโหลดข้อมูลสู่ Cloud...</div>`;
+    }
 
     const img = new Image();
     img.onload = function() {
@@ -829,8 +834,6 @@ function submitToQC() {
             image: reducedImageBase64
         };
 
-        btn.innerHTML = `<div class="loader loader-white"></div> <span>กำลังบันทึก...</span>`;
-
         fetch(API_URL, {
             method: 'POST',
             body: JSON.stringify({ action: "saveTicket", payload: newTicket })
@@ -845,8 +848,9 @@ function submitToQC() {
         })
         .catch(err => {
             showCustomAlert("เกิดข้อผิดพลาดในการบันทึก: " + err.message);
-            btn.disabled = false;
-            btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC`;
+            if(btnContainer) {
+                btnContainer.innerHTML = `<button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" id="submit-btn"><i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC</button>`;
+            }
         });
     };
     img.src = capturedImageBase64;
@@ -858,8 +862,8 @@ function submitToQC() {
 
 let currentInboxFilter = 'pending'; // 'pending' | 'processed'
 let inboxSearchTerm = '';
-let inboxStartDate = getTodayDateString(); // ค่าเริ่มต้นคือวันนี้
-let inboxEndDate = getTodayDateString();   // ค่าเริ่มต้นคือวันนี้
+let inboxStartDate = getTodayDateString(); 
+let inboxEndDate = getTodayDateString();   
 
 function setInboxFilter(filter) {
     currentInboxFilter = filter;
@@ -874,7 +878,6 @@ function executeInboxSearch() {
     }
 }
 
-// ฟังก์ชันอัปเดตตัวกรองวันที่
 function executeInboxDateFilter() {
     const startInput = document.getElementById('inbox-start-date');
     const endInput = document.getElementById('inbox-end-date');
@@ -890,10 +893,10 @@ function renderInboxView(container) {
         baseTickets = dbTickets.filter(t => t.operator === currentUser.name);
     }
 
-    // 📅 กรองข้อมูลตามช่วงวันที่ (Date Range Filter)
+    // กรองข้อมูลตามช่วงวันที่
     baseTickets = baseTickets.filter(t => {
         const tDate = parseTicketDate(t.timestamp);
-        if (!tDate) return true; // ถ้าวันที่ในระบบอ่านไม่ได้ให้แสดงไว้ก่อน
+        if (!tDate) return true; 
         if (inboxStartDate && tDate < inboxStartDate) return false;
         if (inboxEndDate && tDate > inboxEndDate) return false;
         return true;
@@ -921,7 +924,7 @@ function renderInboxView(container) {
                     <i class="fa-solid fa-envelope-open-text text-blue-500 mr-2 text-xl"></i> กล่องข้อความ
                 </h2>
 
-                <!-- 📅 ส่วนเลือกช่วงวันที่ (Date Pickers) -->
+                <!-- 📅 เลือกช่วงวันที่ -->
                 <div class="flex gap-2 mb-3">
                     <div class="flex-1">
                         <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">ตั้งแต่วันที่</label>
@@ -1023,6 +1026,10 @@ function processTicket(action) {
     if (action === 'rejected') { 
         showRejectPrompt();
     } else {
+        const actionContainer = document.getElementById('qc-action-buttons');
+        if(actionContainer) {
+            actionContainer.innerHTML = `<div class="w-full text-center py-3 text-blue-600 font-bold bg-blue-50 rounded-lg"><div class="loader loader-blue mb-2"></div> กำลังอัปโหลดข้อมูลสู่ Cloud...</div>`;
+        }
         executeProcessTicket(action);
     }
 }
@@ -1071,7 +1078,7 @@ function renderTicketDetail(container) {
                         <div class="text-center text-xs text-gray-500 mb-3 bg-gray-100 p-2 rounded">
                             คุณกำลังจะตรวจสอบเอกสารนี้ในชื่อ <strong>${currentUser.name}</strong>
                         </div>
-                        <div class="flex gap-3">
+                        <div id="qc-action-buttons" class="flex gap-3">
                             <button onclick="processTicket('approved')" class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2"><i class="fa-solid fa-check-circle"></i> อนุมัติ (PASS)</button>
                             <button onclick="processTicket('rejected')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2"><i class="fa-solid fa-times-circle"></i> ปฏิเสธ (NG)</button>
                         </div>
