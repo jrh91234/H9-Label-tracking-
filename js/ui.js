@@ -302,15 +302,15 @@ function renderScanView(container) {
                             <div class="space-y-3">
                                 <div>
                                     <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">1. Model</label>
-                                    <input type="text" id="ocr-model" class="w-full border-b-2 border-gray-200 py-1 font-bold text-blue-800 text-base focus:border-blue-500 outline-none transition" value="">
+                                    <input type="text" id="ocr-model" class="w-full border-b-2 border-gray-200 py-1 font-bold text-blue-800 text-base focus:border-blue-500 outline-none transition" value="${extractedModel}">
                                 </div>
                                 <div>
                                     <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">2. Lot No. (TH YY WW DD Shift Line)</label>
-                                    <input type="text" id="ocr-lot" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition uppercase" value="">
+                                    <input type="text" id="ocr-lot" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition uppercase" value="${extractedLot}">
                                 </div>
                                 <div>
                                     <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">3. วันที่ผลิต (รูปแบบ DD/MM/YYYY พ.ศ.)</label>
-                                    <input type="text" id="ocr-date" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition" value="">
+                                    <input type="text" id="ocr-date" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition" value="${extractedDate}">
                                 </div>
                             </div>
                             ${!verificationResult ? `
@@ -346,6 +346,10 @@ function changeJob() {
     currentSelectedJob = null; 
     capturedImageBase64 = null; 
     verificationResult = null; 
+    isProcessingOCR = false;
+    extractedModel = "";
+    extractedLot = "";
+    extractedDate = "";
     stopCamera(); 
     renderMainApp(); 
 }
