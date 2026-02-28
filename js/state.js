@@ -19,4 +19,9 @@ let stream = null;
 let capturedImageBase64 = null;
 let verificationResult = null; 
 let isProcessingOCR = false;
-let isLoadingJobs = false;
+let isLoadingJobs = false; 
+
+// เพิ่มตัวแปรเพื่อเก็บค่าที่ AI อ่านได้
+let extractedModel = "";
+let extractedLot = "";
+let extractedDate = "";
