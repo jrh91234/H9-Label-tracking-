@@ -275,6 +275,11 @@ function renderScanView(container) {
         return;
     }
 
+    // Safety checks in case state.js is not loaded properly (Cache issue)
+    const safeModel = typeof extractedModel !== 'undefined' ? extractedModel : '';
+    const safeLot = typeof extractedLot !== 'undefined' ? extractedLot : '';
+    const safeDate = typeof extractedDate !== 'undefined' ? extractedDate : '';
+
     container.innerHTML = `
         <div class="max-w-md mx-auto fade-in h-full flex flex-col pb-4">
             <div class="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
@@ -302,15 +307,15 @@ function renderScanView(container) {
                             <div class="space-y-3">
                                 <div>
                                     <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">1. Model</label>
-                                    <input type="text" id="ocr-model" class="w-full border-b-2 border-gray-200 py-1 font-bold text-blue-800 text-base focus:border-blue-500 outline-none transition" value="${extractedModel}">
+                                    <input type="text" id="ocr-model" class="w-full border-b-2 border-gray-200 py-1 font-bold text-blue-800 text-base focus:border-blue-500 outline-none transition" value="${safeModel}">
                                 </div>
                                 <div>
                                     <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">2. Lot No. (TH YY WW DD Shift Line)</label>
-                                    <input type="text" id="ocr-lot" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition uppercase" value="${extractedLot}">
+                                    <input type="text" id="ocr-lot" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition uppercase" value="${safeLot}">
                                 </div>
                                 <div>
                                     <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">3. วันที่ผลิต (รูปแบบ DD/MM/YYYY พ.ศ.)</label>
-                                    <input type="text" id="ocr-date" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition" value="${extractedDate}">
+                                    <input type="text" id="ocr-date" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition" value="${safeDate}">
                                 </div>
                             </div>
                             ${!verificationResult ? `
@@ -347,9 +352,14 @@ function changeJob() {
     capturedImageBase64 = null; 
     verificationResult = null; 
     isProcessingOCR = false;
-    extractedModel = "";
-    extractedLot = "";
-    extractedDate = "";
+    
+    // Safely clear state variables if they exist
+    try {
+        if (typeof extractedModel !== 'undefined') extractedModel = "";
+        if (typeof extractedLot !== 'undefined') extractedLot = "";
+        if (typeof extractedDate !== 'undefined') extractedDate = "";
+    } catch(e) {}
+    
     stopCamera(); 
     renderMainApp(); 
 }
