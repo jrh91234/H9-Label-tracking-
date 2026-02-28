@@ -124,7 +124,7 @@ function logout() {
 }
 
 // ==========================================
-// DATA FETCHING
+// DATA FETCHING (JOBS & TICKETS)
 // ==========================================
 function fetchInitialData() {
     isLoadingJobs = true;
@@ -154,12 +154,37 @@ function fetchTickets() {
 }
 
 // ==========================================
+// DATA FETCHING (ADMIN - USERS)
+// ==========================================
+let adminUsersList = [];
+
+function fetchUsersList() {
+    const contentDiv = document.getElementById('main-content');
+    if(contentDiv) contentDiv.innerHTML = `<div class="flex justify-center items-center h-full"><div class="loader loader-blue loader-large"></div></div>`;
+    
+    fetch(`${API_URL}?action=getUsers`)
+        .then(res => res.json())
+        .then(data => {
+            adminUsersList = data || [];
+            renderMainApp();
+        })
+        .catch(err => {
+            showCustomAlert("โหลดข้อมูลผู้ใช้ล้มเหลว: " + err.message);
+            renderMainApp();
+        });
+}
+
+// ==========================================
 // APP ROUTING & UI RENDERING
 // ==========================================
 function switchTab(tab) {
-    // 🛡️ Route Guard: ป้องกันผู้ใช้ที่ไม่มีสิทธิ์เข้าถึงหน้าสแกน
+    // 🛡️ Route Guard
     if (tab === 'scan' && currentUser.role !== 'operator' && currentUser.role !== 'admin') {
         showCustomAlert("คุณไม่มีสิทธิ์เข้าถึงหน้าสแกนฉลาก", false);
+        return;
+    }
+    if (tab === 'admin' && currentUser.role !== 'admin') {
+        showCustomAlert("คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการระบบ", false);
         return;
     }
 
@@ -167,7 +192,12 @@ function switchTab(tab) {
     selectedTicket = null;
     
     if (tab !== 'scan') stopCamera();
-    renderMainApp();
+    
+    if (tab === 'admin') {
+        fetchUsersList(); // ดึงข้อมูลก่อนแสดงผลหน้า Admin
+    } else {
+        renderMainApp();
+    }
 }
 
 function renderMainApp() {
@@ -185,7 +215,7 @@ function renderMainApp() {
                     <span class="font-bold text-lg hidden sm:inline">Label QC</span>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <button onclick="fetchTickets()" class="text-blue-500 hover:text-blue-700" title="รีเฟรชข้อมูล"><i class="fa-solid fa-rotate"></i></button>
+                    <button onclick="currentTab === 'admin' ? fetchUsersList() : fetchTickets()" class="text-blue-500 hover:text-blue-700" title="รีเฟรชข้อมูล"><i class="fa-solid fa-rotate"></i></button>
                     <div class="text-right">
                         <div class="font-semibold text-sm text-blue-800">${currentUser.name}</div>
                         <div class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">${currentUser.role}</div>
@@ -195,7 +225,7 @@ function renderMainApp() {
             </header>
             <main class="flex-1 overflow-y-auto bg-gray-100 p-4 relative" id="main-content"></main>
             <nav class="bg-white border-t flex justify-around p-2 pb-safe">
-                ${currentUser.role === 'operator' || currentUser.role === 'admin' ? `
+                ${(currentUser.role === 'operator' || currentUser.role === 'admin') ? `
                 <button onclick="switchTab('scan')" class="flex flex-col items-center p-2 w-full ${currentTab === 'scan' ? 'text-blue-600' : 'text-gray-400'}">
                     <i class="fa-solid fa-camera text-xl mb-1"></i><span class="text-[10px] font-medium mt-1">สแกน Label</span>
                 </button>
@@ -207,6 +237,11 @@ function renderMainApp() {
                     </div>
                     <span class="text-[10px] font-medium mt-1">กล่องข้อความ</span>
                 </button>
+                ${currentUser.role === 'admin' ? `
+                <button onclick="switchTab('admin')" class="flex flex-col items-center p-2 w-full ${currentTab === 'admin' ? 'text-blue-600' : 'text-gray-400'}">
+                    <i class="fa-solid fa-users-cog text-xl mb-1"></i><span class="text-[10px] font-medium mt-1">จัดการผู้ใช้</span>
+                </button>
+                ` : ''}
             </nav>
         `;
     }
@@ -218,8 +253,161 @@ function renderContent() {
     if (selectedTicket) renderTicketDetail(contentDiv);
     else if (currentTab === 'scan') renderScanView(contentDiv);
     else if (currentTab === 'inbox') renderInboxView(contentDiv);
+    else if (currentTab === 'admin') renderAdminView(contentDiv);
 }
 
+// ==========================================
+// ADMIN USER MANAGEMENT VIEW
+// ==========================================
+function renderAdminView(container) {
+    let html = `
+        <div class="max-w-2xl mx-auto fade-in pb-20">
+            <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
+                <h2 class="font-bold text-gray-700 text-lg"><i class="fa-solid fa-users-cog text-blue-500 mr-2"></i> จัดการผู้ใช้งาน</h2>
+                <button onclick="showAddUserModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg shadow-sm font-bold flex items-center gap-2 transition"><i class="fa-solid fa-plus"></i> เพิ่มผู้ใช้</button>
+            </div>
+            <div class="space-y-3">`;
+    
+    if (adminUsersList.length === 0) {
+        html += `<div class="text-center text-gray-500 py-10 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">ไม่มีข้อมูลผู้ใช้งาน</div>`;
+    }
+
+    adminUsersList.forEach(u => {
+        let roleColor = u.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
+                        u.role === 'qc' ? 'bg-blue-100 text-blue-800' : 
+                        u.role === 'supervisor' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800';
+        
+        let roleTitle = u.role === 'operator' ? 'OP' : u.role.toUpperCase();
+
+        html += `
+            <div class="bg-white rounded-xl shadow-sm p-4 border-l-4 ${u.role === 'admin' ? 'border-purple-500' : 'border-blue-500'} flex justify-between items-center transition hover:shadow-md">
+                <div>
+                    <div class="font-bold text-gray-800 text-base">${u.name}</div>
+                    <div class="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                        <i class="fa-solid fa-user text-gray-400"></i> ${u.username} 
+                        <span class="px-2 py-0.5 rounded-md ${roleColor} text-[10px] font-bold tracking-wider">${roleTitle}</span>
+                    </div>
+                </div>
+                <button onclick="confirmDeleteUser('${u.username}')" class="w-10 h-10 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex justify-center items-center transition shadow-sm border border-red-100" ${u.username === 'admin' ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : 'title="ลบผู้ใช้"'}>
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>`;
+    });
+
+    html += `</div></div>`;
+    container.innerHTML = html;
+}
+
+function showAddUserModal() {
+    const html = `
+        <div id="add-user-modal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 fade-in">
+            <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
+                <h3 class="font-bold text-blue-600 mb-4 text-xl border-b pb-2"><i class="fa-solid fa-user-plus mr-2"></i>เพิ่มบัญชีผู้ใช้งานใหม่</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อ-สกุล <span class="text-red-500">*</span></label>
+                        <input type="text" id="new-user-name" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="เช่น สมชาย ใจดี">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Username <span class="text-red-500">*</span></label>
+                        <input type="text" id="new-user-username" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="ใช้สำหรับล็อกอิน (ห้ามซ้ำ)">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">Password <span class="text-red-500">*</span></label>
+                        <input type="password" id="new-user-password" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="กำหนดรหัสผ่าน">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">สิทธิ์การใช้งาน (Role)</label>
+                        <select id="new-user-role" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition font-bold text-gray-700">
+                            <option value="operator">ฝ่ายผลิต (Operator - ถ่ายรูปฉลาก)</option>
+                            <option value="qc">หน่วยตรวจสอบ (QC - ตรวจผ่าน/ไม่ผ่าน)</option>
+                            <option value="supervisor">หัวหน้างาน (Supervisor - ตรวจผ่าน/ไม่ผ่าน)</option>
+                            <option value="admin">ผู้ดูแลระบบ (Admin - เข้าถึงได้ทุกฟังก์ชัน)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-6">
+                    <button onclick="document.getElementById('add-user-modal').remove()" class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold transition">ยกเลิก</button>
+                    <button onclick="executeAddUser()" id="btn-add-user" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition shadow-md flex justify-center items-center gap-2"><i class="fa-solid fa-save"></i> บันทึก</button>
+                </div>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function executeAddUser() {
+    const name = document.getElementById('new-user-name').value.trim();
+    const username = document.getElementById('new-user-username').value.trim();
+    const password = document.getElementById('new-user-password').value.trim();
+    const role = document.getElementById('new-user-role').value;
+
+    if (!name || !username || !password) return showCustomAlert("กรุณากรอกข้อมูลให้ครบถ้วน");
+
+    const btn = document.getElementById('btn-add-user');
+    btn.innerHTML = `<div class="loader loader-white"></div>`;
+    btn.disabled = true;
+
+    fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: "addUser", payload: { name, username, password, role } })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.success) {
+            document.getElementById('add-user-modal').remove();
+            showCustomAlert(`เพิ่มบัญชี "${name}" เข้าสู่ระบบเรียบร้อย`, true);
+            fetchUsersList(); // รีโหลดข้อมูลตารางผู้ใช้ใหม่
+        } else throw new Error(res.error);
+    })
+    .catch(err => {
+        showCustomAlert(err.message);
+        btn.innerHTML = `<i class="fa-solid fa-save"></i> บันทึก`;
+        btn.disabled = false;
+    });
+}
+
+function confirmDeleteUser(username) {
+    const html = `
+        <div id="delete-modal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 fade-in">
+            <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full text-center">
+                <i class="fa-solid fa-triangle-exclamation text-red-500 text-5xl mb-4"></i>
+                <h3 class="font-bold text-gray-800 text-lg mb-2">ยืนยันการลบผู้ใช้?</h3>
+                <p class="text-sm text-gray-600 mb-6">คุณกำลังจะลบบัญชี <span class="font-bold text-red-600">${username}</span><br>การกระทำนี้ไม่สามารถกู้คืนได้</p>
+                <div class="flex gap-3">
+                    <button onclick="document.getElementById('delete-modal').remove()" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition">ยกเลิก</button>
+                    <button onclick="executeDeleteUser('${username}')" id="btn-delete-user" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition flex justify-center items-center"><i class="fa-solid fa-trash-can mr-2"></i> ลบถาวร</button>
+                </div>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function executeDeleteUser(username) {
+    const btn = document.getElementById('btn-delete-user');
+    btn.innerHTML = `<div class="loader loader-white"></div>`;
+    btn.disabled = true;
+    
+    fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: "deleteUser", username: username })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if(res.success) {
+            document.getElementById('delete-modal').remove();
+            showCustomAlert(`ลบบัญชี ${username} ออกจากระบบแล้ว`, true);
+            fetchUsersList(); // รีโหลดข้อมูลตารางผู้ใช้ใหม่
+        } else throw new Error(res.error);
+    })
+    .catch(err => {
+        showCustomAlert(err.message);
+        document.getElementById('delete-modal').remove();
+    });
+}
+
+// ==========================================
+// RENDER VIEWS (SCAN & INBOX)
+// ==========================================
 function renderScanView(container) {
     if (!currentSelectedJob) {
         let jobOptions = "";
@@ -283,7 +471,7 @@ function renderScanView(container) {
         return;
     }
 
-    // Safety checks in case state.js is not loaded properly (Cache issue)
+    // Safety checks in case state.js is not loaded properly
     const safeModel = typeof extractedModel !== 'undefined' ? extractedModel : '';
     const safeLot = typeof extractedLot !== 'undefined' ? extractedLot : '';
     const safeDate = typeof extractedDate !== 'undefined' ? extractedDate : '';
@@ -361,7 +549,6 @@ function changeJob() {
     verificationResult = null; 
     isProcessingOCR = false;
     
-    // Safely clear state variables if they exist
     try {
         if (typeof extractedModel !== 'undefined') extractedModel = "";
         if (typeof extractedLot !== 'undefined') extractedLot = "";
@@ -377,11 +564,10 @@ function submitToQC() {
     btn.innerHTML = `<div class="loader loader-white"></div> <span>กำลังเตรียมรูปภาพ...</span>`;
     btn.disabled = true;
 
-    // ทำการ Resize และลดคุณภาพรูปลงก่อนส่งไป Google Drive
     const img = new Image();
     img.onload = function() {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800; // ลดขนาดความกว้างลงเหลือไม่เกิน 800px เพื่อประหยัดพื้นที่
+        const MAX_WIDTH = 800;
         let width = img.width;
         let height = img.height;
         
@@ -395,7 +581,6 @@ function submitToQC() {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
         
-        // บีบอัดคุณภาพเหลือ 60% (.6)
         const reducedImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
 
         const newTicket = {
@@ -471,27 +656,6 @@ function renderInboxView(container) {
 function openTicket(id) { selectedTicket = dbTickets.find(t => t.id === id); renderMainApp(); }
 function closeTicket() { selectedTicket = null; renderMainApp(); }
 
-function executeProcessTicket(action, reason = "") {
-    fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: "updateTicket", ticketId: selectedTicket.id, status: action, qcName: currentUser.name, reason: reason })
-    })
-    .then(res => res.json())
-    .then(res => {
-        if(res.success) { showCustomAlert(`บันทึกสถานะเรียบร้อย`, true); fetchTickets(); closeTicket(); }
-        else throw new Error(res.error);
-    })
-    .catch(err => showCustomAlert("เกิดข้อผิดพลาดในการอัปเดตสถานะ API: " + err.message));
-}
-
-function processTicket(action) {
-    if (action === 'rejected') { 
-        showRejectPrompt();
-    } else {
-        executeProcessTicket(action);
-    }
-}
-
 function renderTicketDetail(container) {
     let t = selectedTicket;
     let statusColor = t.status === 'pending' ? 'text-yellow-600' : t.status === 'approved' ? 'text-green-600' : 'text-red-600';
@@ -539,12 +703,10 @@ function renderTicketDetail(container) {
 // START APP & AUTH CHECK
 // ==========================================
 function initApp() {
-    // 🛡️ เช็คความถูกต้องและสิทธิ์ของ Session ก่อนให้เข้าใช้งาน
     const savedUser = localStorage.getItem('qc_app_user');
     if (savedUser) {
         try {
             currentUser = JSON.parse(savedUser);
-            // หากไม่มีข้อมูล Role ใน Object ที่เซฟไว้ ให้ถือว่า Session พังและต้องล็อกอินใหม่
             if (!currentUser || !currentUser.role) {
                 throw new Error("Invalid Session Data");
             }
@@ -553,7 +715,6 @@ function initApp() {
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
             fetchInitialData();
         } catch (e) {
-            // หากข้อมูล Session ผิดพลาด ให้ทำการลบทิ้งและแสดงหน้าล็อกอิน
             localStorage.removeItem('qc_app_user');
             currentUser = null;
         }
