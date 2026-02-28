@@ -98,6 +98,7 @@ function handleLogin() {
     .then(res => {
         if (res.success) {
             currentUser = res.data; 
+            localStorage.setItem('qc_app_user', JSON.stringify(currentUser)); // บันทึก Session การล็อกอิน
             currentTab = (currentUser.role === 'operator') ? 'scan' : 'inbox';
             currentSelectedJob = null; 
             fetchInitialData();
@@ -115,7 +116,12 @@ function handleLogin() {
     });
 }
 
-function logout() { currentUser = null; stopCamera(); render(); }
+function logout() { 
+    currentUser = null; 
+    localStorage.removeItem('qc_app_user'); // ลบ Session ทิ้งเมื่อออกจากระบบ
+    stopCamera(); 
+    render(); 
+}
 
 // ==========================================
 // DATA FETCHING
@@ -522,6 +528,24 @@ function renderTicketDetail(container) {
 }
 
 // ==========================================
-// START APP
+// START APP & AUTH CHECK
 // ==========================================
-window.onload = render;
+function initApp() {
+    // ตรวจสอบข้อมูลการล็อกอินที่เคยบันทึกไว้ใน LocalStorage
+    const savedUser = localStorage.getItem('qc_app_user');
+    if (savedUser) {
+        try {
+            currentUser = JSON.parse(savedUser);
+            // ตั้งค่า Tab ตาม Role ปัจจุบัน
+            currentTab = (currentUser.role === 'operator') ? 'scan' : 'inbox';
+            fetchInitialData();
+        } catch (e) {
+            // หากข้อมูล Session ผิดพลาด ให้ทำการลบทิ้ง
+            localStorage.removeItem('qc_app_user');
+            currentUser = null;
+        }
+    }
+    render();
+}
+
+window.onload = initApp;
