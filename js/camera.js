@@ -26,20 +26,15 @@ function captureImage() {
     if(!video || !video.videoWidth) return;
 
     const canvas = document.createElement('canvas');
-    const MAX_WIDTH = 800;
+    // ใช้ขนาด Original ของกล้องเลย เพื่อให้ OCR อ่านได้แม่นยำที่สุด
     let width = video.videoWidth;
     let height = video.videoHeight;
-    
-    if (width > MAX_WIDTH) { 
-        height = Math.floor(height * (MAX_WIDTH / width)); 
-        width = MAX_WIDTH; 
-    }
     
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, width, height);
     
-    // Image Optimization
+    // Image Optimization (ทำภาพขาวดำ + เพิ่ม Contrast ให้ AI อ่านง่ายขึ้น)
     const imageData = ctx.getImageData(0, 0, width, height);
     const data = imageData.data;
     for (let i = 0; i < data.length; i += 4) {
@@ -54,7 +49,8 @@ function captureImage() {
     if(scanner) scanner.style.display = 'block';
     
     isProcessingOCR = true;
-    capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.70);
+    // เก็บรูปขนาด Original เต็มๆ ไว้
+    capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.95);
     
     stopCamera();
     renderMainApp();
@@ -83,7 +79,6 @@ function handleOCRResult(rawText) {
     isProcessingOCR = false;
     const targetModel = dbJobs.find(j => j.job === currentSelectedJob)?.targetModel || "";
     
-    // เคลียร์ค่าเก่าก่อน
     extractedModel = ""; extractedLot = ""; extractedDate = "";
 
     if (rawText.includes(targetModel)) extractedModel = targetModel;
@@ -99,7 +94,6 @@ function handleOCRResult(rawText) {
 
     renderMainApp();
     
-    // ตั้งหน่วงเวลาเล็กน้อยเพื่อให้หน้าจอ Render เสร็จก่อนรันตรวจสอบ
     setTimeout(() => {
         runSmartVerification();
     }, 100);
@@ -110,7 +104,6 @@ function runSmartVerification() {
     const lotEl = document.getElementById('ocr-lot');
     const dateEl = document.getElementById('ocr-date');
     
-    // อัปเดตตัวแปร State จากหน้าจอ (กรณีที่ผู้ใช้งานพิมพ์แก้ข้อผิดพลาด AI เอง)
     if (modelEl) extractedModel = modelEl.value.trim();
     if (lotEl) extractedLot = lotEl.value.trim();
     if (dateEl) extractedDate = dateEl.value.trim();
