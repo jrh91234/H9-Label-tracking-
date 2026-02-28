@@ -734,6 +734,18 @@ function renderScanView(container) {
     const safeQty = typeof extractedQty !== 'undefined' ? extractedQty : ''; 
 
     let verifyHtml = '';
+    
+    // 🛡️ เช็คว่าถ้าเป็น Admin ให้แสดงกล่องเลือกข้อมูลทดสอบ
+    let testModeHtml = currentUser.role === 'admin' ? `
+        <!-- 🛡️ กล่องตัวเลือกโหมดทดสอบ -->
+        <div class="mt-4 flex items-center justify-between bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+            <label for="test-mode-toggle" class="text-sm font-bold text-yellow-800 flex items-center gap-2 cursor-pointer">
+                <i class="fa-solid fa-flask text-yellow-600"></i> ส่งเป็นข้อมูลทดสอบระบบ
+            </label>
+            <input type="checkbox" id="test-mode-toggle" class="w-5 h-5 accent-yellow-600 cursor-pointer">
+        </div>
+    ` : '';
+
     if (!verificationResult) {
         verifyHtml = `
             <button onclick="runSmartVerification()" class="w-full py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg shadow transition mt-6 flex justify-center items-center gap-2">
@@ -750,13 +762,7 @@ function renderScanView(container) {
                 <ul class="text-xs space-y-1.5 text-gray-700">${msgList}</ul>
             </div>
             
-            <!-- 🛡️ กล่องตัวเลือกโหมดทดสอบ -->
-            <div class="mt-4 flex items-center justify-between bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                <label for="test-mode-toggle" class="text-sm font-bold text-yellow-800 flex items-center gap-2 cursor-pointer">
-                    <i class="fa-solid fa-flask text-yellow-600"></i> ส่งเป็นข้อมูลทดสอบระบบ
-                </label>
-                <input type="checkbox" id="test-mode-toggle" class="w-5 h-5 accent-yellow-600 cursor-pointer">
-            </div>
+            ${testModeHtml}
 
             <div id="submit-action-container">
                 <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" ${!verificationResult.isPass ? 'disabled' : ''} id="submit-btn">
