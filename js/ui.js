@@ -492,6 +492,61 @@ function renderScanView(container) {
     const safeLot = typeof extractedLot !== 'undefined' ? extractedLot : '';
     const safeDate = typeof extractedDate !== 'undefined' ? extractedDate : '';
 
+    // การแยกตัวแปร HTML ออกมาเพื่อป้องกัน Parser ของเบราว์เซอร์สับสน
+    let verifyHtml = '';
+    if (!verificationResult) {
+        verifyHtml = `
+            <button onclick="runSmartVerification()" class="w-full py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg shadow transition mt-6 flex justify-center items-center gap-2">
+                <i class="fa-solid fa-magnifying-glass-check"></i> กดตรวจสอบความถูกต้อง
+            </button>
+        `;
+    } else {
+        let msgList = verificationResult.messages.map(m => `<li>${m}</li>`).join('');
+        verifyHtml = `
+            <div class="mt-4 p-4 rounded-xl border-2 ${verificationResult.isPass ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
+                <h4 class="font-bold text-base mb-3 flex items-center ${verificationResult.isPass ? 'text-green-700' : 'text-red-700'}">
+                    ${verificationResult.isPass ? '<i class="fa-solid fa-circle-check mr-2 text-xl"></i> ผลตรวจสอบ: ผ่าน (PASS)' : '<i class="fa-solid fa-circle-xmark mr-2 text-xl"></i> ผลตรวจสอบ: พบข้อผิดพลาด (NG)'}
+                </h4>
+                <ul class="text-xs space-y-1.5 text-gray-700">${msgList}</ul>
+            </div>
+            <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" ${!verificationResult.isPass ? 'disabled' : ''} id="submit-btn">
+                <i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC
+            </button>
+        `;
+    }
+
+    let innerContent = '';
+    if (isProcessingOCR) {
+        innerContent = `
+            <div class="h-full flex flex-col justify-center items-center py-10">
+                <div class="loader loader-blue loader-large mb-4"></div>
+                <p class="text-blue-600 font-bold mt-4">AI กำลังอ่านข้อความ...</p>
+                <p class="text-xs text-gray-500 mt-2 text-center">ระบบกำลังสกัดข้อมูลจากรูปภาพ<br>และคำนวณตรวจสอบความถูกต้อง</p>
+            </div>
+        `;
+    } else {
+        innerContent = `
+            <div class="space-y-4">
+                <h3 class="font-bold text-sm text-gray-700 flex items-center border-b pb-2"><i class="fa-solid fa-robot text-blue-500 mr-2 text-lg"></i> ผลลัพธ์ที่ AI อ่านได้ (ตรวจสอบ/แก้ไข)</h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">1. Model</label>
+                        <input type="text" id="ocr-model" class="w-full border-b-2 border-gray-200 py-1 font-bold text-blue-800 text-base focus:border-blue-500 outline-none transition" value="${safeModel}">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">2. Lot No. (TH YY WW DD Shift Line)</label>
+                        <input type="text" id="ocr-lot" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition uppercase" value="${safeLot}">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">3. วันที่ผลิต (รูปแบบ DD/MM/YYYY พ.ศ.)</label>
+                        <input type="text" id="ocr-date" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition" value="${safeDate}">
+                    </div>
+                </div>
+                ${verifyHtml}
+            </div>
+        `;
+    }
+
     container.innerHTML = `
         <div class="max-w-md mx-auto fade-in h-full flex flex-col pb-4">
             <div class="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
@@ -507,46 +562,7 @@ function renderScanView(container) {
                     <button onclick="retakePhoto()" class="absolute bottom-2 right-2 bg-black/60 text-white px-3 py-1.5 rounded-lg text-xs backdrop-blur-sm border border-white/20 shadow"><i class="fa-solid fa-rotate-right mr-1"></i> ถ่ายใหม่</button>
                 </div>
                 <div class="p-4 bg-white overflow-y-auto">
-                    ${isProcessingOCR ? `
-                        <div class="h-full flex flex-col justify-center items-center py-10">
-                            <div class="loader loader-blue loader-large mb-4"></div>
-                            <p class="text-blue-600 font-bold mt-4">AI กำลังอ่านข้อความ...</p>
-                            <p class="text-xs text-gray-500 mt-2 text-center">ระบบกำลังสกัดข้อมูลจากรูปภาพ<br>และคำนวณตรวจสอบความถูกต้อง</p>
-                        </div>
-                    ` : `
-                        <div class="space-y-4">
-                            <h3 class="font-bold text-sm text-gray-700 flex items-center border-b pb-2"><i class="fa-solid fa-robot text-blue-500 mr-2 text-lg"></i> ผลลัพธ์ที่ AI อ่านได้ (ตรวจสอบ/แก้ไข)</h3>
-                            <div class="space-y-3">
-                                <div>
-                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">1. Model</label>
-                                    <input type="text" id="ocr-model" class="w-full border-b-2 border-gray-200 py-1 font-bold text-blue-800 text-base focus:border-blue-500 outline-none transition" value="${safeModel}">
-                                </div>
-                                <div>
-                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">2. Lot No. (TH YY WW DD Shift Line)</label>
-                                    <input type="text" id="ocr-lot" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition uppercase" value="${safeLot}">
-                                </div>
-                                <div>
-                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">3. วันที่ผลิต (รูปแบบ DD/MM/YYYY พ.ศ.)</label>
-                                    <input type="text" id="ocr-date" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition" value="${safeDate}">
-                                </div>
-                            </div>
-                            ${!verificationResult ? `
-                                <button onclick="runSmartVerification()" class="w-full py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg shadow transition mt-6 flex justify-center items-center gap-2">
-                                    <i class="fa-solid fa-magnifying-glass-check"></i> กดตรวจสอบความถูกต้อง
-                                </button>
-                            ` : `
-                                <div class="mt-4 p-4 rounded-xl border-2 ${verificationResult.isPass ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
-                                    <h4 class="font-bold text-base mb-3 flex items-center ${verificationResult.isPass ? 'text-green-700' : 'text-red-700'}">
-                                        ${verificationResult.isPass ? '<i class="fa-solid fa-circle-check mr-2 text-xl"></i> ผลตรวจสอบ: ผ่าน (PASS)' : '<i class="fa-solid fa-circle-xmark mr-2 text-xl"></i> ผลตรวจสอบ: พบข้อผิดพลาด (NG)'}
-                                    </h4>
-                                    <ul class="text-xs space-y-1.5 text-gray-700">${verificationResult.messages.map(m => `<li>${m}</li>`).join('')}</ul>
-                                </div>
-                                <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" ${!verificationResult.isPass ? 'disabled' : ''} id="submit-btn">
-                                    <i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC
-                                </button>
-                            `}
-                        </div>
-                    `}
+                    ${innerContent}
                 </div>
             </div>
         </div>
