@@ -110,6 +110,15 @@ async function captureImage() {
 // ==========================================
 // OCR & SMART VERIFICATION
 // ==========================================
+
+// Event Listener ดักจับการแก้ไขข้อมูลในช่องกรอก (Auto-detect)
+document.addEventListener('input', function(e) {
+    if (e.target.id === 'ocr-model' || e.target.id === 'ocr-lot' || e.target.id === 'ocr-date') {
+        // เมื่อมีการพิมพ์แก้ ให้รันตรวจสอบใหม่ทันที พร้อมส่ง Flag ว่ามาจากการพิมพ์ (true)
+        runSmartVerification(true);
+    }
+});
+
 function handleOCRResult(rawText) {
     isProcessingOCR = false;
     const targetModel = dbJobs.find(j => j.job === currentSelectedJob)?.targetModel || "";
@@ -136,19 +145,20 @@ function handleOCRResult(rawText) {
     }, 100);
 }
 
-function runSmartVerification() {
+function runSmartVerification(isFromInput = false) {
     const modelEl = document.getElementById('ocr-model');
     const lotEl = document.getElementById('ocr-lot');
     const dateEl = document.getElementById('ocr-date');
     
-    // อัปเดตตัวแปร State จากหน้าจอ (กรณีที่ผู้ใช้งานพิมพ์แก้ข้อผิดพลาด AI เอง)
-    if (modelEl) extractedModel = modelEl.value.trim();
-    if (lotEl) extractedLot = lotEl.value.trim();
-    if (dateEl) extractedDate = dateEl.value.trim();
+    // อัปเดตตัวแปร State จากหน้าจอ (เก็บค่าดิบ ไม่ตัด Space เพื่อไม่ให้เคอร์เซอร์สะดุดเวลาพิมพ์ค้าง)
+    if (modelEl) extractedModel = modelEl.value;
+    if (lotEl) extractedLot = lotEl.value;
+    if (dateEl) extractedDate = dateEl.value;
 
-    const model = extractedModel;
-    const lot = extractedLot;
-    const dateStr = extractedDate;
+    // นำค่าไปเช็คโดยตัดช่องว่างซ้ายขวาออกก่อน (trim)
+    const model = extractedModel.trim();
+    const lot = extractedLot.trim();
+    const dateStr = extractedDate.trim();
     const targetModel = dbJobs.find(j => j.job === currentSelectedJob)?.targetModel || "";
     
     let isPass = true; let messages = [];
@@ -237,7 +247,29 @@ function runSmartVerification() {
     }
 
     verificationResult = { isPass, messages };
-    renderMainApp();
+
+    // หากมาจากการพิมพ์แก้ไข (isFromInput) ต้องจดจำตำแหน่ง Cursor ไว้ก่อน Render เพื่อไม่ให้การพิมพ์สะดุด
+    if (isFromInput) {
+        const activeId = document.activeElement ? document.activeElement.id : null;
+        let selectionStart = 0, selectionEnd = 0;
+        if (activeId && (activeId === 'ocr-model' || activeId === 'ocr-lot' || activeId === 'ocr-date')) {
+            selectionStart = document.activeElement.selectionStart;
+            selectionEnd = document.activeElement.selectionEnd;
+        }
+        
+        renderMainApp(); // วาดหน้าจอใหม่แสดงผลลัพธ์ใหม่
+        
+        // คืนค่า Focus กลับไปยังจุดเดิม
+        if (activeId) {
+            const el = document.getElementById(activeId);
+            if (el) {
+                el.focus();
+                try { el.setSelectionRange(selectionStart, selectionEnd); } catch(e){}
+            }
+        }
+    } else {
+        renderMainApp();
+    }
 }
 
 function retakePhoto() {
