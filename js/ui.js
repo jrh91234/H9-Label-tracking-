@@ -38,13 +38,13 @@ function confirmReject() {
     executeProcessTicket('rejected', reason);
 }
 
-// 🛡️ ฟังก์ชันใหม่: แปลงลิงก์ Google Drive ให้แสดงผลแบบ Direct Image
+// 🛡️ ฟังก์ชันใหม่: แปลงลิงก์ Google Drive ให้แสดงผลผ่าน Thumbnail API ป้องกันรูปแตก
 function getDriveImageUrl(url) {
     if (!url) return 'https://via.placeholder.com/150';
-    // ดึง ID ของไฟล์ออกมา และแปลงเป็นลิงก์ CDN ที่แสดงผลใน <img> ได้ 100%
-    const match = url.match(/id=([a-zA-Z0-9_-]+)/);
+    // ดึง ID ของไฟล์ออกมา และแปลงเป็นลิงก์ Thumbnail ของ Drive (มีความเสถียรสูงสุดสำหรับการนำมาแปะบนเว็บ)
+    const match = url.match(/id=([a-zA-Z0-9_-]+)/) || url.match(/d\/([a-zA-Z0-9_-]+)/);
     if (match && match[1]) {
-        return `https://lh3.googleusercontent.com/d/${match[1]}`;
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
     }
     return url;
 }
@@ -233,8 +233,8 @@ function renderMainApp() {
                     <button onclick="logout()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-sign-out-alt text-xl"></i></button>
                 </div>
             </header>
-            <main class="flex-1 overflow-y-auto bg-gray-100 p-4 relative" id="main-content"></main>
-            <nav class="bg-white border-t flex justify-around p-2 pb-safe">
+            <main class="flex-1 overflow-y-auto bg-gray-100 relative" id="main-content"></main>
+            <nav class="bg-white border-t flex justify-around p-2 pb-safe z-20">
                 ${(currentUser.role === 'operator' || currentUser.role === 'admin') ? `
                 <button onclick="switchTab('scan')" class="flex flex-col items-center p-2 w-full ${currentTab === 'scan' ? 'text-blue-600' : 'text-gray-400'}">
                     <i class="fa-solid fa-camera text-xl mb-1"></i><span class="text-[10px] font-medium mt-1">สแกน Label</span>
@@ -271,7 +271,7 @@ function renderContent() {
 // ==========================================
 function renderAdminView(container) {
     let html = `
-        <div class="max-w-2xl mx-auto fade-in pb-20">
+        <div class="max-w-2xl mx-auto fade-in pb-20 p-4">
             <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
                 <h2 class="font-bold text-gray-700 text-lg"><i class="fa-solid fa-users-cog text-blue-500 mr-2"></i> จัดการผู้ใช้งาน</h2>
                 <button onclick="showAddUserModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg shadow-sm font-bold flex items-center gap-2 transition"><i class="fa-solid fa-plus"></i> เพิ่มผู้ใช้</button>
@@ -432,7 +432,7 @@ function executeDeleteUser(username) {
 }
 
 // ==========================================
-// RENDER VIEWS (SCAN & INBOX)
+// RENDER VIEWS (SCAN)
 // ==========================================
 function renderScanView(container) {
     if (!currentSelectedJob) {
@@ -451,7 +451,7 @@ function renderScanView(container) {
         }
 
         container.innerHTML = `
-            <div class="max-w-md mx-auto fade-in mt-10">
+            <div class="max-w-md mx-auto fade-in mt-10 p-4">
                 <div class="bg-white rounded-xl shadow p-6 border-t-4 border-blue-500">
                     <h2 class="font-bold text-lg text-gray-800 mb-4"><i class="fa-solid fa-clipboard-list text-blue-500 mr-2"></i> 1. เลือก Job Order</h2>
                     <p class="text-xs text-gray-500 mb-3">กรุณาเลือก Job Order ที่คุณกำลังต้องการสแกนฉลาก</p>
@@ -556,7 +556,7 @@ function renderScanView(container) {
     }
 
     container.innerHTML = `
-        <div class="max-w-md mx-auto fade-in h-full flex flex-col pb-4">
+        <div class="max-w-md mx-auto fade-in h-full flex flex-col pb-4 p-4">
             <div class="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
                 <div class="p-3 bg-blue-50 border-b flex justify-between items-center">
                     <div>
@@ -655,21 +655,102 @@ function submitToQC() {
     img.src = capturedImageBase64;
 }
 
+// ==========================================
+// RENDER VIEWS (INBOX - EMAIL STYLE)
+// ==========================================
+
+// กำหนด State สำหรับ Inbox (เพื่อให้จำค่าล่าสุดเวลาเปิดไปหน้าอื่นแล้วกลับมา)
+let currentInboxFilter = 'pending'; // 'pending' | 'processed'
+let inboxSearchTerm = '';
+
+// ฟังก์ชันเปลี่ยน Tab ใน Inbox
+function setInboxFilter(filter) {
+    currentInboxFilter = filter;
+    renderMainApp();
+}
+
+// ฟังก์ชันค้นหาข้อมูล
+function executeInboxSearch() {
+    const input = document.getElementById('inbox-search-input');
+    if (input) {
+        inboxSearchTerm = input.value.trim().toLowerCase();
+        renderMainApp();
+    }
+}
+
 function renderInboxView(container) {
-    let displayTickets = dbTickets;
+    let baseTickets = dbTickets;
+    
+    // กรองข้อมูลเบื้องต้นตามสิทธิ์: Operator เห็นเฉพาะของตัวเอง
     if (currentUser.role === 'operator') {
-        displayTickets = dbTickets.filter(t => t.operator === currentUser.name);
-    } else {
-        displayTickets = [...dbTickets].sort((a, b) => {
-            if(a.status === 'pending' && b.status !== 'pending') return -1;
-            if(a.status !== 'pending' && b.status === 'pending') return 1;
-            return 0;
-        });
+        baseTickets = dbTickets.filter(t => t.operator === currentUser.name);
     }
 
-    let html = `<div class="max-w-2xl mx-auto fade-in"><h2 class="font-bold text-gray-700 mb-4 text-lg"><i class="fa-solid fa-inbox text-blue-500 mr-2"></i> กล่องข้อความ (Inbox)</h2><div class="space-y-3 pb-20">`;
+    // คำนวณจำนวนตั๋วทั้งหมดในแต่ละหมวดหมู่ (ก่อนถูกค้นหา)
+    let pendingCount = baseTickets.filter(t => t.status === 'pending').length;
+    let processedCount = baseTickets.filter(t => t.status !== 'pending').length;
+
+    // กรองข้อมูลตาม Tab ที่เลือก (รอตรวจสอบ vs ดำเนินการแล้ว)
+    let displayTickets = baseTickets.filter(t => currentInboxFilter === 'pending' ? t.status === 'pending' : t.status !== 'pending');
+
+    // กรองข้อมูลตามคำค้นหา (เผื่ออนาคตข้อมูลเยอะๆ)
+    if (inboxSearchTerm) {
+        displayTickets = displayTickets.filter(t => 
+            t.jobOrder.toLowerCase().includes(inboxSearchTerm) || 
+            t.model.toLowerCase().includes(inboxSearchTerm) ||
+            t.lot.toLowerCase().includes(inboxSearchTerm)
+        );
+    }
+
+    // จัดเรียงรายการ: ใหม่ล่าสุดขึ้นก่อน
+    displayTickets.sort((a, b) => b.id.localeCompare(a.id));
+
+    let html = `
+        <div class="max-w-2xl mx-auto flex flex-col h-full fade-in">
+            <!-- ส่วนหัว และ แถบค้นหา / Tabs -->
+            <div class="bg-white px-4 pt-4 pb-2 shadow-sm z-10 sticky top-0">
+                <h2 class="font-bold text-gray-800 text-lg mb-3 flex items-center">
+                    <i class="fa-solid fa-envelope-open-text text-blue-500 mr-2 text-xl"></i> กล่องข้อความ
+                </h2>
+                
+                <!-- ช่องค้นหา (Search System) -->
+                <div class="relative flex gap-2 mb-3">
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
+                        <input type="text" id="inbox-search-input" placeholder="ค้นหา Job, Model, Lot..." 
+                               class="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                               value="${inboxSearchTerm}" 
+                               onkeypress="if(event.key === 'Enter') executeInboxSearch()">
+                    </div>
+                    <button onclick="executeInboxSearch()" class="bg-gray-800 text-white px-4 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-700 transition">ค้นหา</button>
+                </div>
+
+                <!-- Tabs (แบบ Email Style) -->
+                <div class="flex bg-gray-100 p-1 rounded-lg">
+                    <button onclick="setInboxFilter('pending')" class="flex-1 py-2 text-sm font-bold rounded-md transition flex justify-center items-center gap-1.5 ${currentInboxFilter === 'pending' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                        รอตรวจสอบ 
+                        ${pendingCount > 0 ? `<span class="${currentInboxFilter === 'pending' ? 'bg-red-500' : 'bg-gray-400'} text-white text-[10px] px-1.5 py-0.5 rounded-full">${pendingCount}</span>` : ''}
+                    </button>
+                    <button onclick="setInboxFilter('processed')" class="flex-1 py-2 text-sm font-bold rounded-md transition flex justify-center items-center gap-1.5 ${currentInboxFilter === 'processed' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                        ดำเนินการแล้ว
+                        ${processedCount > 0 ? `<span class="${currentInboxFilter === 'processed' ? 'bg-gray-600' : 'bg-gray-400'} text-white text-[10px] px-1.5 py-0.5 rounded-full">${processedCount}</span>` : ''}
+                    </button>
+                </div>
+            </div>
+
+            <!-- พื้นที่แสดงรายการตั๋ว -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
+    `;
     
-    if (displayTickets.length === 0) html += `<div class="text-center text-gray-500 py-10 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">ไม่มีรายการในระบบ</div>`;
+    if (displayTickets.length === 0) {
+        html += `
+            <div class="text-center text-gray-500 py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
+                <i class="fa-regular fa-folder-open text-5xl text-gray-300 mb-3"></i>
+                <p class="font-bold text-gray-600">ไม่มีรายการในหมวดหมู่นี้</p>
+                <p class="text-xs text-gray-400 mt-1">รายการสแกนทั้งหมดจะถูกแสดงที่นี่</p>
+            </div>
+        `;
+    }
 
     displayTickets.forEach(t => {
         let statusColor = t.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' : 
@@ -679,7 +760,7 @@ function renderInboxView(container) {
 
         html += `
             <div onclick="openTicket('${t.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${t.status === 'pending' ? 'border-yellow-500' : t.status === 'approved' ? 'border-green-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3 transition">
-                <div class="w-16 h-16 bg-gray-200 rounded overflow-hidden flex-shrink-0 border">
+                <div class="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200 shadow-inner">
                     <!-- 🛡️ เรียกใช้ฟังก์ชันแปลงลิงก์รูปตรงนี้ -->
                     <img src="${getDriveImageUrl(t.imageUrl)}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150'">
                 </div>
@@ -689,11 +770,15 @@ function renderInboxView(container) {
                         <span class="text-[10px] px-2 py-0.5 rounded-full border ${statusColor} font-medium flex-shrink-0">${statusIcon}</span>
                     </div>
                     <div class="text-sm font-bold text-gray-800 mt-1 truncate">Model: ${t.model}</div>
-                    <div class="text-[10px] text-gray-500 mt-1 truncate">ส่งโดย: ${t.operator} • ${t.timestamp.split(' ')[1]}</div>
+                    <div class="text-[10px] text-gray-500 mt-1 truncate flex items-center gap-1">
+                        <i class="fa-solid fa-user-circle"></i> ${t.operator} • ${t.timestamp.split(' ')[1]}
+                    </div>
                 </div>
             </div>`;
     });
-    html += `</div></div>`; container.innerHTML = html;
+    
+    html += `</div></div>`; 
+    container.innerHTML = html;
 }
 
 function openTicket(id) { selectedTicket = dbTickets.find(t => t.id === id); renderMainApp(); }
@@ -706,7 +791,11 @@ function executeProcessTicket(action, reason = "") {
     })
     .then(res => res.json())
     .then(res => {
-        if(res.success) { showCustomAlert(`บันทึกสถานะเรียบร้อย`, true); fetchTickets(); closeTicket(); }
+        if(res.success) { 
+            showCustomAlert(`บันทึกสถานะเรียบร้อย`, true); 
+            fetchTickets(); 
+            closeTicket(); 
+        }
         else throw new Error(res.error);
     })
     .catch(err => showCustomAlert("เกิดข้อผิดพลาดในการอัปเดตสถานะ API: " + err.message));
@@ -726,7 +815,7 @@ function renderTicketDetail(container) {
     let canApprove = (currentUser.role === 'qc' || currentUser.role === 'admin' || currentUser.role === 'supervisor') && t.status === 'pending';
 
     container.innerHTML = `
-        <div class="max-w-2xl mx-auto fade-in pb-20">
+        <div class="max-w-2xl mx-auto fade-in pb-20 p-4">
             <button onclick="closeTicket()" class="mb-4 text-blue-600 hover:text-blue-800 font-medium"><i class="fa-solid fa-arrow-left mr-1"></i> ย้อนกลับ</button>
             <div class="bg-white rounded-xl shadow-md overflow-hidden">
                 <div class="p-4 border-b flex justify-between items-center bg-gray-50">
