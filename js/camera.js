@@ -1,7 +1,7 @@
 // ==========================================
 // CAMERA LOGIC
 // ==========================================
-let extractedQty = ""; // เพิ่มตัวแปรสำหรับเก็บค่าจำนวน
+let extractedQty = ""; // ตัวแปรสำหรับเก็บค่าจำนวน
 
 async function startCamera() {
     try {
@@ -71,7 +71,7 @@ async function captureImage() {
     isProcessingOCR = true;
     capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.95);
     
-    // อ่าน Barcode ด้วย
+    // อ่าน Barcode
     let barcodeText = "";
     if ('BarcodeDetector' in window) {
         try {
@@ -123,7 +123,6 @@ function handleOCRResult(rawText) {
     // เคลียร์ค่าทั้งหมด
     extractedModel = ""; extractedLot = ""; extractedDate = ""; extractedQty = "";
 
-    // 🔴 ปรับ Regex ให้อ่านเครื่องหมายทับ (/) ได้ด้วย
     if (rawText.includes(targetModel)) extractedModel = targetModel;
     else { 
         let mMatch = rawText.match(/[A-Z0-9-\/]{6,25}/); 
@@ -164,6 +163,7 @@ function runSmartVerification(isFromInput = false) {
     
     let isPass = true; let messages = [];
 
+    // 1. เช็ค Model
     if (model === targetModel && model !== "") { 
         messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> Model ถูกต้อง (${targetModel})</span>`); 
     } else { 
@@ -171,11 +171,18 @@ function runSmartVerification(isFromInput = false) {
         isPass = false; 
     }
 
+    // ตัวแปรเวลาปัจจุบัน
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     const currentDate = now.getDate();
     
+    // 🟢 คำนวณวันในสัปดาห์: 1 = วันอาทิตย์, 2 = วันจันทร์, ..., 7 = วันเสาร์
+    // now.getDay() ให้ค่า 0 ถึง 6 เราจึงบวก 1 เข้าไปให้ตรงกับกฎ
+    let currentDayOfWeek = now.getDay() + 1;
+    const dayNames = ["", "อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+
+    // คำนวณ Week ปัจจุบัน
     const targetNow = new Date(now.valueOf());
     const dayNrNow = (now.getDay() + 6) % 7;
     targetNow.setDate(targetNow.getDate() - dayNrNow + 3);
@@ -185,6 +192,7 @@ function runSmartVerification(isFromInput = false) {
     const currentWeek = 1 + Math.ceil((firstThursdayNow - targetNow) / 604800000);
     const expectedLotYear = currentYear % 100;
 
+    // 2. เช็ค Date
     let bYear = 0;
     try {
         if (dateStr === "") {
@@ -210,12 +218,15 @@ function runSmartVerification(isFromInput = false) {
         messages.push(`<span class="text-yellow-600 font-bold"><i class="fa-solid fa-triangle-exclamation text-xs"></i> วันที่ผลิตผิดฟอร์แมต (DD/MM/YYYY พ.ศ.) - อนุโลมให้ผ่าน</span>`); 
     }
 
+    // 3. เช็ค Lot
     const lotParts = lot.split(/\s+/);
     if (lotParts.length >= 6 && lotParts[0] === 'TH') {
         const lotYear = parseInt(lotParts[1], 10);
         const lotWeek = parseInt(lotParts[2], 10);
+        const lotDay = parseInt(lotParts[3], 10); // ดึงตัวเลขวันที่ในสัปดาห์ของ Lot
         const lotShift = lotParts[4].toUpperCase();
 
+        // เช็คปี
         if (lotYear === expectedLotYear) {
             messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> ปีใน Lot (${lotYear}) ตรงกับปีปัจจุบัน</span>`);
         } else { 
@@ -223,6 +234,7 @@ function runSmartVerification(isFromInput = false) {
             isPass = false; 
         }
 
+        // เช็คสัปดาห์
         if (lotWeek === currentWeek) {
             messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> สัปดาห์ใน Lot (${lotWeek}) ตรงสัปดาห์ปัจจุบัน</span>`);
         } else {
@@ -230,6 +242,15 @@ function runSmartVerification(isFromInput = false) {
             isPass = false;
         }
 
+        // 🟢 เช็ควันในสัปดาห์ (1=อาทิตย์ ... 7=เสาร์)
+        if (lotDay === currentDayOfWeek) {
+            messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันในสัปดาห์ (${lotDay}) ตรงกับวันนี้ (วัน${dayNames[currentDayOfWeek]})</span>`);
+        } else {
+            messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> วันในสัปดาห์ Lot (${lotDay}) ผิด! (วันนี้คือ ${currentDayOfWeek} = วัน${dayNames[currentDayOfWeek]})</span>`);
+            isPass = false;
+        }
+
+        // เช็คกะ
         if (lotShift === 'A' || lotShift === 'B') {
             const isShiftMatch = currentUser.name.toUpperCase().includes(lotShift);
             if (isShiftMatch) {
@@ -249,6 +270,7 @@ function runSmartVerification(isFromInput = false) {
 
     verificationResult = { isPass, messages };
 
+    // รักษาสถานะเคอร์เซอร์กรณีที่ผู้ใช้พิมพ์แก้เอง
     if (isFromInput) {
         const activeId = document.activeElement ? document.activeElement.id : null;
         let selectionStart = 0, selectionEnd = 0;
