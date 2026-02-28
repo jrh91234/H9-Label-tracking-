@@ -318,11 +318,18 @@ function showAddUserModal() {
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">สิทธิ์การใช้งาน (Role)</label>
-                        <select id="new-user-role" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition font-bold text-gray-700">
+                        <select id="new-user-role" onchange="toggleShiftSelect()" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition font-bold text-gray-700">
                             <option value="operator">ฝ่ายผลิต (Operator - ถ่ายรูปฉลาก)</option>
                             <option value="qc">หน่วยตรวจสอบ (QC - ตรวจผ่าน/ไม่ผ่าน)</option>
                             <option value="supervisor">หัวหน้างาน (Supervisor - ตรวจผ่าน/ไม่ผ่าน)</option>
                             <option value="admin">ผู้ดูแลระบบ (Admin - เข้าถึงได้ทุกฟังก์ชัน)</option>
+                        </select>
+                    </div>
+                    <div id="shift-container">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">กะการทำงาน (Shift) <span class="text-red-500">*</span></label>
+                        <select id="new-user-shift" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition font-bold text-gray-700">
+                            <option value="A">กะ A</option>
+                            <option value="B">กะ B</option>
                         </select>
                     </div>
                 </div>
@@ -335,11 +342,20 @@ function showAddUserModal() {
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
+function toggleShiftSelect() {
+    const roleEl = document.getElementById('new-user-role');
+    const shiftContainer = document.getElementById('shift-container');
+    if (roleEl && shiftContainer) {
+        shiftContainer.style.display = roleEl.value === 'operator' ? 'block' : 'none';
+    }
+}
+
 function executeAddUser() {
     const name = document.getElementById('new-user-name').value.trim();
     const username = document.getElementById('new-user-username').value.trim();
     const password = document.getElementById('new-user-password').value.trim();
     const role = document.getElementById('new-user-role').value;
+    const shift = document.getElementById('new-user-shift') ? document.getElementById('new-user-shift').value : '';
 
     if (!name || !username || !password) return showCustomAlert("กรุณากรอกข้อมูลให้ครบถ้วน");
 
@@ -349,7 +365,7 @@ function executeAddUser() {
 
     fetch(API_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: "addUser", payload: { name, username, password, role } })
+        body: JSON.stringify({ action: "addUser", payload: { name, username, password, role, shift } })
     })
     .then(res => res.json())
     .then(res => {
@@ -502,24 +518,24 @@ function renderScanView(container) {
                             <h3 class="font-bold text-sm text-gray-700 flex items-center border-b pb-2"><i class="fa-solid fa-robot text-blue-500 mr-2 text-lg"></i> ผลลัพธ์ที่ AI อ่านได้ (ตรวจสอบ/แก้ไข)</h3>
                             <div class="space-y-3">
                                 <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1">สิทธิ์การใช้งาน (Role)</label>
-                            <select id="new-user-role" onchange="toggleShiftSelect()" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition font-bold text-gray-700">
-                                <option value="operator">ฝ่ายผลิต (Operator - ถ่ายรูปฉลาก)</option>
-                                <option value="qc">หน่วยตรวจสอบ (QC - ตรวจผ่าน/ไม่ผ่าน)</option>
-                                <option value="supervisor">หัวหน้างาน (Supervisor - ตรวจผ่าน/ไม่ผ่าน)</option>
-                                <option value="admin">ผู้ดูแลระบบ (Admin - เข้าถึงได้ทุกฟังก์ชัน)</option>
-                            </select>
-                        </div>
-                        <div id="shift-container">
-                            <label class="block text-sm font-bold text-gray-700 mb-1">กะการทำงาน (Shift) <span class="text-red-500">*</span></label>
-                            <select id="new-user-shift" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition font-bold text-gray-700">
-                                <option value="A">กะ A</option>
-                                <option value="B">กะ B</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="flex gap-3 mt-6">
-                        <button onclick="document.getElementById('add-user-modal').remove()" class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold transition">ยกเลิก</button>
+                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">1. Model</label>
+                                    <input type="text" id="ocr-model" class="w-full border-b-2 border-gray-200 py-1 font-bold text-blue-800 text-base focus:border-blue-500 outline-none transition" value="${safeModel}">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">2. Lot No. (TH YY WW DD Shift Line)</label>
+                                    <input type="text" id="ocr-lot" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition uppercase" value="${safeLot}">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">3. วันที่ผลิต (รูปแบบ DD/MM/YYYY พ.ศ.)</label>
+                                    <input type="text" id="ocr-date" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition" value="${safeDate}">
+                                </div>
+                            </div>
+                            ${!verificationResult ? `
+                                <button onclick="runSmartVerification()" class="w-full py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg shadow transition mt-6 flex justify-center items-center gap-2">
+                                    <i class="fa-solid fa-magnifying-glass-check"></i> กดตรวจสอบความถูกต้อง
+                                </button>
+                            ` : `
+                                <div class="mt-4 p-4 rounded-xl border-2 ${verificationResult.isPass ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
                                     <h4 class="font-bold text-base mb-3 flex items-center ${verificationResult.isPass ? 'text-green-700' : 'text-red-700'}">
                                         ${verificationResult.isPass ? '<i class="fa-solid fa-circle-check mr-2 text-xl"></i> ผลตรวจสอบ: ผ่าน (PASS)' : '<i class="fa-solid fa-circle-xmark mr-2 text-xl"></i> ผลตรวจสอบ: พบข้อผิดพลาด (NG)'}
                                     </h4>
@@ -649,35 +665,56 @@ function renderInboxView(container) {
                     <div class="text-[10px] text-gray-500 mt-1 truncate">ส่งโดย: ${t.operator} • ${t.timestamp.split(' ')[1]}</div>
                 </div>
             </div>`;
-    document.body.insertAdjacentHTML('beforeend', html);
+    });
+    html += `</div></div>`; container.innerHTML = html;
 }
 
-function toggleShiftSelect() {
-    const roleEl = document.getElementById('new-user-role');
-    const shiftContainer = document.getElementById('shift-container');
-    if (roleEl && shiftContainer) {
-        shiftContainer.style.display = roleEl.value === 'operator' ? 'block' : 'none';
+function openTicket(id) { selectedTicket = dbTickets.find(t => t.id === id); renderMainApp(); }
+function closeTicket() { selectedTicket = null; renderMainApp(); }
+
+function executeProcessTicket(action, reason = "") {
+    fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: "updateTicket", ticketId: selectedTicket.id, status: action, qcName: currentUser.name, reason: reason })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if(res.success) { showCustomAlert(`บันทึกสถานะเรียบร้อย`, true); fetchTickets(); closeTicket(); }
+        else throw new Error(res.error);
+    })
+    .catch(err => showCustomAlert("เกิดข้อผิดพลาดในการอัปเดตสถานะ API: " + err.message));
+}
+
+function processTicket(action) {
+    if (action === 'rejected') { 
+        showRejectPrompt();
+    } else {
+        executeProcessTicket(action);
     }
 }
 
-function executeAddUser() {
-    const name = document.getElementById('new-user-name').value.trim();
-    const username = document.getElementById('new-user-username').value.trim();
-    const password = document.getElementById('new-user-password').value.trim();
-    const role = document.getElementById('new-user-role').value;
-    const shift = document.getElementById('new-user-shift') ? document.getElementById('new-user-shift').value : '';
+function renderTicketDetail(container) {
+    let t = selectedTicket;
+    let statusColor = t.status === 'pending' ? 'text-yellow-600' : t.status === 'approved' ? 'text-green-600' : 'text-red-600';
+    let canApprove = (currentUser.role === 'qc' || currentUser.role === 'admin' || currentUser.role === 'supervisor') && t.status === 'pending';
 
-    if (!name || !username || !password) return showCustomAlert("กรุณากรอกข้อมูลให้ครบถ้วน");
-
-    const btn = document.getElementById('btn-add-user');
-    btn.innerHTML = `<div class="loader loader-white"></div>`;
-    btn.disabled = true;
-
-    fetch(API_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: "addUser", payload: { name, username, password, role, shift } })
-    })
-    .then(res => res.json())
+    container.innerHTML = `
+        <div class="max-w-2xl mx-auto fade-in pb-20">
+            <button onclick="closeTicket()" class="mb-4 text-blue-600 hover:text-blue-800 font-medium"><i class="fa-solid fa-arrow-left mr-1"></i> ย้อนกลับ</button>
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+                    <div class="overflow-hidden pr-2">
+                        <h2 class="font-bold text-lg text-blue-800 truncate">${t.jobOrder}</h2>
+                        <span class="text-[10px] text-gray-500 font-mono">Ref: ${t.id}</span>
+                    </div>
+                    <span class="font-bold ${statusColor} uppercase text-sm flex-shrink-0">${t.status}</span>
+                </div>
+                <div class="p-4 bg-black flex justify-center"><img src="${t.imageUrl || ''}" class="max-h-80 object-contain rounded border border-gray-700"></div>
+                <div class="p-5 space-y-4">
+                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                        <h3 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1">ข้อมูลที่สกัดได้จากฉลาก</h3>
+                        <div class="grid grid-cols-3 gap-2 text-sm">
+                            <div class="text-gray-500">Model:</div><div class="col-span-2 font-bold text-gray-800">${t.model}</div>
                             <div class="text-gray-500 mt-1">Lot No:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.lot}</div>
                             <div class="text-gray-500 mt-1">วันที่ผลิต:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.date}</div>
                         </div>
