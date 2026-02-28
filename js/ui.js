@@ -93,7 +93,66 @@ function confirmReject() {
     executeProcessTicket('rejected', reason);
 }
 
-// ฟังก์ชันสำหรับแสดงรูปภาพแบบเต็มจอ (Full Screen Modal)
+// 🛡️ ฟังก์ชันสำหรับแสดง Modal เปลี่ยนรหัสผ่านตัวเอง
+function showChangePasswordModal() {
+    const html = `
+        <div id="change-password-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4 fade-in">
+            <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
+                <h3 class="font-bold text-blue-600 mb-4 text-xl border-b pb-2"><i class="fa-solid fa-key mr-2"></i>เปลี่ยนรหัสผ่าน</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">รหัสผ่านใหม่ <span class="text-red-500">*</span></label>
+                        <input type="password" id="new-password" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="อย่างน้อย 4 ตัวอักษร">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">ยืนยันรหัสผ่านใหม่ <span class="text-red-500">*</span></label>
+                        <input type="password" id="confirm-new-password" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="กรอกรหัสผ่านใหม่อีกครั้ง">
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-6">
+                    <button onclick="document.getElementById('change-password-modal').remove()" class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold transition">ยกเลิก</button>
+                    <button onclick="executeChangePassword()" id="btn-change-password" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition shadow-md flex justify-center items-center gap-2"><i class="fa-solid fa-save"></i> บันทึก</button>
+                </div>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function executeChangePassword() {
+    const newPass = document.getElementById('new-password').value.trim();
+    const confirmPass = document.getElementById('confirm-new-password').value.trim();
+
+    if (!newPass || !confirmPass) return showCustomAlert("กรุณากรอกรหัสผ่านให้ครบถ้วน");
+    if (newPass !== confirmPass) return showCustomAlert("รหัสผ่านใหม่ไม่ตรงกัน");
+    if (newPass.length < 4) return showCustomAlert("รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร");
+
+    const btn = document.getElementById('btn-change-password');
+    btn.innerHTML = `<div class="loader loader-white"></div>`;
+    btn.disabled = true;
+
+    fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+            action: "changePassword",
+            username: currentUser.username, 
+            newPassword: newPass
+        })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.success) {
+            document.getElementById('change-password-modal').remove();
+            showCustomAlert(`เปลี่ยนรหัสผ่านสำเร็จ`, true);
+        } else throw new Error(res.error);
+    })
+    .catch(err => {
+        showCustomAlert(err.message);
+        btn.innerHTML = `<i class="fa-solid fa-save"></i> บันทึก`;
+        btn.disabled = false;
+    });
+}
+
+// ฟังก์ชันสำหรับแสดงรูปภาพแบบเต็มจอ
 function showImageModal(imageUrl) {
     if (!imageUrl || imageUrl.includes('placeholder')) return;
     const html = `
@@ -108,7 +167,7 @@ function showImageModal(imageUrl) {
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
-// 🛡️ ฟังก์ชันใหม่: แปลงลิงก์ Google Drive ให้แสดงผลผ่าน Thumbnail API ป้องกันรูปแตก พร้อมปรับขนาดได้
+// แปลงลิงก์ Google Drive ให้แสดงผลผ่าน Thumbnail API
 function getDriveImageUrl(url, size = 'w800') {
     if (!url) return 'https://via.placeholder.com/150';
     const match = url.match(/id=([a-zA-Z0-9_-]+)/) || url.match(/d\/([a-zA-Z0-9_-]+)/);
@@ -118,10 +177,33 @@ function getDriveImageUrl(url, size = 'w800') {
     return url;
 }
 
-// ตัวจัดการวันที่ ไม่ให้ติดตัว T กลับมาแสดงผล
+// ตัวจัดการวันที่และเวลา
 function formatDisplayDate(dateStr) {
     if (!dateStr) return '';
     return String(dateStr).replace('T', ' ').replace('.000Z', '');
+}
+
+// ดึงค่าวันที่วันนี้รูปแบบ YYYY-MM-DD สำหรับ input type="date"
+function getTodayDateString() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+// แปลงวันที่แบบ dd/MM/yyyy HH:mm:ss กลับเป็น YYYY-MM-DD เพื่อใช้เทียบค่าเวลาค้นหา
+function parseTicketDate(timestampStr) {
+    if (!timestampStr) return null;
+    if (timestampStr.includes('/')) {
+        const parts = timestampStr.split(' ')[0].split('/');
+        if (parts.length === 3) {
+            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+        }
+    } else if (timestampStr.includes('-')) {
+         return timestampStr.split('T')[0];
+    }
+    return null;
 }
 
 // ==========================================
@@ -186,6 +268,7 @@ function handleLogin() {
     .then(res => {
         if (res.success) {
             currentUser = res.data; 
+            currentUser.username = user; // 🛡️ บันทึก Username ไว้ใช้สำหรับกรณีต้องการเปลี่ยนรหัสผ่าน
             localStorage.setItem('qc_app_user', JSON.stringify(currentUser)); 
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
             currentSelectedJob = null; 
@@ -290,7 +373,23 @@ function switchTab(tab) {
 
 function renderMainApp() {
     const appDiv = document.getElementById('app');
-    let pendingCount = dbTickets.filter(t => t.status === 'pending').length;
+    
+    // คำนวณจำนวนตั๋วรอตรวจ
+    let pendingCount = 0;
+    if (currentUser) {
+        let baseTickets = dbTickets.filter(t => {
+            const tDate = parseTicketDate(t.timestamp);
+            if (!tDate) return true;
+            if (inboxStartDate && tDate < inboxStartDate) return false;
+            if (inboxEndDate && tDate > inboxEndDate) return false;
+            return true;
+        });
+        if (currentUser.role === 'operator') {
+            baseTickets = baseTickets.filter(t => t.operator === currentUser.name);
+        }
+        pendingCount = baseTickets.filter(t => t.status === 'pending').length;
+    }
+
     const isFullscreenCamera = currentTab === 'scan' && currentSelectedJob && !capturedImageBase64 && !isProcessingOCR;
 
     if (isFullscreenCamera) {
@@ -302,13 +401,15 @@ function renderMainApp() {
                     <i class="fa-solid fa-shield-check text-blue-600 text-xl mr-2"></i>
                     <span class="font-bold text-lg hidden sm:inline">Label QC</span>
                 </div>
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-3 sm:space-x-4">
                     <button onclick="currentTab === 'admin' ? fetchUsersList() : fetchTickets()" class="text-blue-500 hover:text-blue-700" title="รีเฟรชข้อมูล"><i class="fa-solid fa-rotate"></i></button>
-                    <div class="text-right">
+                    <!-- 🔑 ปุ่มแก้ไขรหัสผ่าน -->
+                    <button onclick="showChangePasswordModal()" class="text-gray-400 hover:text-blue-600 transition" title="เปลี่ยนรหัสผ่าน"><i class="fa-solid fa-key"></i></button>
+                    <div class="text-right ml-1 border-l pl-3 border-gray-200">
                         <div class="font-semibold text-sm text-blue-800">${currentUser.name}</div>
                         <div class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">${currentUser.role}</div>
                     </div>
-                    <button onclick="logout()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-sign-out-alt text-xl"></i></button>
+                    <button onclick="logout()" class="text-gray-400 hover:text-red-500 transition ml-2"><i class="fa-solid fa-sign-out-alt text-xl"></i></button>
                 </div>
             </header>
             <main class="flex-1 overflow-y-auto bg-gray-100 relative" id="main-content"></main>
@@ -651,7 +752,6 @@ function renderScanView(container) {
                     <button onclick="changeJob()" class="text-[10px] text-blue-600 border border-blue-600 px-2 py-1 rounded bg-white font-bold"><i class="fa-solid fa-pen"></i> เปลี่ยน</button>
                 </div>
                 
-                <!-- 🛡️ ทำให้พื้นที่รูปภาพสามารถคลิกขยายได้ -->
                 <div class="bg-black flex justify-center items-center h-48 relative border-b cursor-pointer" onclick="if('${capturedImageBase64}') showImageModal('${capturedImageBase64}')" title="คลิกเพื่อขยายรูปภาพ">
                     <div class="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs backdrop-blur-sm pointer-events-none z-10"><i class="fa-solid fa-magnifying-glass-plus"></i> ขยาย</div>
                     <img src="${capturedImageBase64 || ''}" class="w-full h-full object-contain pointer-events-none" />
@@ -758,6 +858,8 @@ function submitToQC() {
 
 let currentInboxFilter = 'pending'; // 'pending' | 'processed'
 let inboxSearchTerm = '';
+let inboxStartDate = getTodayDateString(); // ค่าเริ่มต้นคือวันนี้
+let inboxEndDate = getTodayDateString();   // ค่าเริ่มต้นคือวันนี้
 
 function setInboxFilter(filter) {
     currentInboxFilter = filter;
@@ -772,12 +874,30 @@ function executeInboxSearch() {
     }
 }
 
+// ฟังก์ชันอัปเดตตัวกรองวันที่
+function executeInboxDateFilter() {
+    const startInput = document.getElementById('inbox-start-date');
+    const endInput = document.getElementById('inbox-end-date');
+    if (startInput) inboxStartDate = startInput.value;
+    if (endInput) inboxEndDate = endInput.value;
+    renderMainApp();
+}
+
 function renderInboxView(container) {
     let baseTickets = dbTickets;
     
     if (currentUser.role === 'operator') {
         baseTickets = dbTickets.filter(t => t.operator === currentUser.name);
     }
+
+    // 📅 กรองข้อมูลตามช่วงวันที่ (Date Range Filter)
+    baseTickets = baseTickets.filter(t => {
+        const tDate = parseTicketDate(t.timestamp);
+        if (!tDate) return true; // ถ้าวันที่ในระบบอ่านไม่ได้ให้แสดงไว้ก่อน
+        if (inboxStartDate && tDate < inboxStartDate) return false;
+        if (inboxEndDate && tDate > inboxEndDate) return false;
+        return true;
+    });
 
     let pendingCount = baseTickets.filter(t => t.status === 'pending').length;
     let processedCount = baseTickets.filter(t => t.status !== 'pending').length;
@@ -800,6 +920,18 @@ function renderInboxView(container) {
                 <h2 class="font-bold text-gray-800 text-lg mb-3 flex items-center">
                     <i class="fa-solid fa-envelope-open-text text-blue-500 mr-2 text-xl"></i> กล่องข้อความ
                 </h2>
+
+                <!-- 📅 ส่วนเลือกช่วงวันที่ (Date Pickers) -->
+                <div class="flex gap-2 mb-3">
+                    <div class="flex-1">
+                        <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">ตั้งแต่วันที่</label>
+                        <input type="date" id="inbox-start-date" value="${inboxStartDate}" onchange="executeInboxDateFilter()" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">ถึงวันที่</label>
+                        <input type="date" id="inbox-end-date" value="${inboxEndDate}" onchange="executeInboxDateFilter()" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                </div>
                 
                 <div class="relative flex gap-2 mb-3">
                     <div class="relative flex-1">
@@ -832,7 +964,7 @@ function renderInboxView(container) {
             <div class="text-center text-gray-500 py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
                 <i class="fa-regular fa-folder-open text-5xl text-gray-300 mb-3"></i>
                 <p class="font-bold text-gray-600">ไม่มีรายการในหมวดหมู่นี้</p>
-                <p class="text-xs text-gray-400 mt-1">รายการสแกนทั้งหมดจะถูกแสดงที่นี่</p>
+                <p class="text-xs text-gray-400 mt-1">ลองเปลี่ยนช่วงวันที่หรือคำค้นหาดูนะครับ</p>
             </div>
         `;
     }
