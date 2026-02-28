@@ -34,12 +34,13 @@ function updateBadgeAndNotify(tickets) {
         }
     }
 
-    // เด้ง Push Notification เมื่อมีรายการใหม่
+    // เด้ง Push Notification เมื่อมีรายการสแกนเสร็จใหม่
     const storedCount = parseInt(localStorage.getItem('qc_pending_count') || '0');
     if (pendingCount > storedCount && currentUser.role !== 'operator') {
+        const newItemsCount = pendingCount - storedCount;
         if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('Smart Label QC', { 
-                body: `มีรายการรอตรวจสอบใหม่ ${pendingCount - storedCount} รายการ!`, 
+                body: `มีรายการรอตรวจสอบใหม่ ${newItemsCount} รายการ!`, 
                 icon: 'https://cdn-icons-png.flaticon.com/512/7516/7516738.png' 
             });
         }
@@ -50,8 +51,9 @@ function updateBadgeAndNotify(tickets) {
 
 function startAutoFetch() {
     if (autoFetchInterval) clearInterval(autoFetchInterval);
+    // รีเฟรชอัตโนมัติ ทุกๆ 30 วินาที
     autoFetchInterval = setInterval(() => { 
-        if (currentUser) fetchTickets(); 
+        if (currentUser) fetchPeriodicData(false); 
     }, 30000); 
 }
 
@@ -368,21 +370,20 @@ function handleRefresh(event) {
     if (currentTab === 'admin') {
         fetchUsersList(); 
     } else {
-        fetchInitialData(); 
+        fetchPeriodicData(false); // เรียกโหลดข้อมูลทั้งระบบ
     }
 }
 
 function fetchInitialData() {
     isLoadingJobs = true;
     
-    // 🟢 ดึงข้อมูลทั้งแผนการผลิต (Job) และประวัติการปริ้น (Batches) มาพร้อมกัน
     Promise.all([
         fetch(`${API_URL}?action=getJobs`).then(res => res.json()).catch(() => []),
         fetch(`${API_URL}?action=getBatches`).then(res => res.json()).catch(() => [])
     ])
     .then(([jobsData, batchesData]) => {
         dbJobs = jobsData || [];
-        dbBatches = batchesData || []; // เก็บค่า Batch รอตรวจ
+        dbBatches = batchesData || []; 
         isLoadingJobs = false;
         
         if (currentTab === 'scan' && !currentSelectedJob) {
@@ -402,6 +403,41 @@ function fetchTickets() {
             if(currentTab === 'inbox') renderMainApp();
         })
         .catch(err => console.error("โหลดข้อมูล Inbox ไม่สำเร็จ: ", err));
+}
+
+function fetchPeriodicData(isInitialLoad = false) {
+    Promise.all([
+        fetch(`${API_URL}?action=getTickets`).then(res => res.json()).catch(() => []),
+        fetch(`${API_URL}?action=getBatches`).then(res => res.json()).catch(() => [])
+    ])
+    .then(([ticketsData, batchesData]) => {
+        dbTickets = ticketsData || []; 
+        updateBadgeAndNotify(dbTickets); 
+        
+        const newBatches = batchesData || [];
+        
+        // แจ้งเตือนเมื่อมีคิวปริ้นใหม่
+        if (currentUser && (currentUser.role === 'qc' || currentUser.role === 'supervisor' || currentUser.role === 'admin')) {
+            const storedBatchCount = parseInt(localStorage.getItem('qc_batch_count') || '0');
+            
+            if (!isInitialLoad && newBatches.length > storedBatchCount) {
+                const newPrints = newBatches.length - storedBatchCount;
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('🖨️ สัญญาณแจ้งเตือนการปริ้น!', { 
+                        body: `ฝ่ายผลิตสั่งปริ้นฉลากใหม่จำนวน ${newPrints} รายการ (กำลังรอสแกนเข้าสู่ระบบ)`, 
+                        icon: 'https://cdn-icons-png.flaticon.com/512/732/732220.png',
+                    });
+                }
+            }
+            localStorage.setItem('qc_batch_count', newBatches.length.toString());
+        }
+        
+        dbBatches = newBatches;
+
+        if (currentTab === 'inbox') renderMainApp();
+        if (currentTab === 'scan' && !currentSelectedJob) renderMainApp();
+    })
+    .catch(err => console.error("โหลดข้อมูล Periodic ผิดพลาด: ", err));
 }
 
 let adminUsersList = [];
@@ -716,7 +752,6 @@ function renderScanView(container) {
             batchOptions = `<option value="">⏳ กำลังตรวจสอบเครื่องปริ้น...</option>`;
             isSelectDisabled = true;
         } else {
-            // โหลดรายการ Job
             if (dbJobs.length === 0) {
                 jobOptions = `<option value="">❌ ไม่พบ Job Order</option>`;
                 isSelectDisabled = true;
@@ -724,12 +759,15 @@ function renderScanView(container) {
                 jobOptions = `<option value="">-- เลือก Job Order --</option>` + dbJobs.map(j => `<option value="${j.job}">${j.job} (Model: ${j.targetModel})</option>`).join('');
             }
             
-            // 🟢 โหลดรายการ Batch (Poka-Yoke: บังคับให้ต้องมีข้อมูลจากเครื่องปริ้นก่อน)
             if (dbBatches.length === 0) {
                 batchOptions = `<option value="">❌ ไม่พบคิวการปริ้น (กรุณาสั่งปริ้นก่อนเข้าแอป)</option>`;
-                isSelectDisabled = true; // บล็อกปุ่มสแกนถ้ายังไม่ปริ้น!
+                isSelectDisabled = true; 
             } else {
-                batchOptions += dbBatches.map(b => `<option value="${b.batchNo}">${b.batchNo} (เวลา: ${b.timestamp.split(' ')[1]})</option>`).join('');
+                // 🟢 สกัดเอาเฉพาะชื่อไฟล์เผื่อยังติด Path มาจากของเก่า
+                batchOptions += dbBatches.map(b => {
+                    let cleanDocName = b.docName ? b.docName.split('\\').pop().split('/').pop() : 'Unknown';
+                    return `<option value="${b.batchNo}">${b.batchNo} (ไฟล์: ${cleanDocName} | ${b.timestamp.split(' ')[1]})</option>`;
+                }).join('');
             }
         }
 
@@ -877,12 +915,17 @@ function renderScanView(container) {
                     </div>
                     <button onclick="changeJob()" class="text-[10px] text-blue-600 border border-blue-600 px-2 py-1 rounded bg-white font-bold h-fit"><i class="fa-solid fa-pen"></i> เปลี่ยน</button>
                 </div>
+                
                 <div class="bg-black flex justify-center items-center h-48 relative border-b cursor-pointer" onclick="if('${capturedImageBase64}') showImageModal('${capturedImageBase64}')" title="คลิกเพื่อขยายรูปภาพ">
                     <div class="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs backdrop-blur-sm pointer-events-none z-10"><i class="fa-solid fa-magnifying-glass-plus"></i> ขยาย</div>
                     <img src="${capturedImageBase64 || ''}" class="w-full h-full object-contain pointer-events-none" />
+                    
                     <button onclick="event.stopPropagation(); retakePhoto()" class="absolute bottom-2 right-2 bg-black/60 text-white px-3 py-1.5 rounded-lg text-xs backdrop-blur-sm border border-white/20 shadow z-10"><i class="fa-solid fa-rotate-right mr-1"></i> ถ่ายใหม่</button>
                 </div>
-                <div class="p-4 bg-white overflow-y-auto">${innerContent}</div>
+                
+                <div class="p-4 bg-white overflow-y-auto">
+                    ${innerContent}
+                </div>
             </div>
         </div>
     `;
@@ -968,7 +1011,7 @@ function submitToQC() {
                 showCustomAlert(`ส่งข้อมูลให้ QC ตรวจสอบสำเร็จ!`, true);
                 capturedImageBase64 = null; 
                 verificationResult = null;
-                fetchTickets(); 
+                fetchPeriodicData(true); 
                 switchTab('inbox');
             } else {
                 throw new Error(res.error);
@@ -977,7 +1020,7 @@ function submitToQC() {
         .catch(err => {
             showCustomAlert("เกิดข้อผิดพลาดในการบันทึก: " + err.message);
             if(btnContainer) {
-                btnContainer.innerHTML = `<button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4" id="submit-btn"><i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC</button>`;
+                btnContainer.innerHTML = `<button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" id="submit-btn"><i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC</button>`;
             }
         });
     };
@@ -1149,7 +1192,7 @@ function executeProcessTicket(action, reason = "") {
     .then(res => { 
         if(res.success) { 
             showCustomAlert(`บันทึกสถานะเรียบร้อย`, true); 
-            fetchTickets(); 
+            fetchPeriodicData(true); 
             closeTicket(); 
         } else {
             throw new Error(res.error); 
