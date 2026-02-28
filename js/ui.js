@@ -93,11 +93,27 @@ function confirmReject() {
     executeProcessTicket('rejected', reason);
 }
 
-function getDriveImageUrl(url) {
+// ฟังก์ชันสำหรับแสดงรูปภาพแบบเต็มจอ (Full Screen Modal)
+function showImageModal(imageUrl) {
+    if (!imageUrl || imageUrl.includes('placeholder')) return;
+    const html = `
+        <div id="image-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 p-2 fade-in" onclick="document.getElementById('image-modal').remove()">
+            <div class="relative w-full h-full flex justify-center items-center">
+                <img src="${imageUrl}" class="max-w-full max-h-full object-contain rounded" onclick="event.stopPropagation()">
+                <button onclick="document.getElementById('image-modal').remove()" class="absolute top-4 right-4 text-white bg-black/50 hover:bg-black/80 rounded-full w-10 h-10 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+        </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+// 🛡️ ฟังก์ชันใหม่: แปลงลิงก์ Google Drive ให้แสดงผลผ่าน Thumbnail API ป้องกันรูปแตก พร้อมปรับขนาดได้
+function getDriveImageUrl(url, size = 'w800') {
     if (!url) return 'https://via.placeholder.com/150';
     const match = url.match(/id=([a-zA-Z0-9_-]+)/) || url.match(/d\/([a-zA-Z0-9_-]+)/);
     if (match && match[1]) {
-        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=${size}`;
     }
     return url;
 }
@@ -562,7 +578,7 @@ function renderScanView(container) {
     const safeModel = typeof extractedModel !== 'undefined' ? extractedModel : '';
     const safeLot = typeof extractedLot !== 'undefined' ? extractedLot : '';
     const safeDate = typeof extractedDate !== 'undefined' ? extractedDate : '';
-    const safeQty = typeof extractedQty !== 'undefined' ? extractedQty : ''; // ฟิลด์จำนวนปริ้น
+    const safeQty = typeof extractedQty !== 'undefined' ? extractedQty : ''; 
 
     let verifyHtml = '';
     if (!verificationResult) {
@@ -614,7 +630,6 @@ function renderScanView(container) {
                             <input type="text" id="ocr-date" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition" value="${safeDate}">
                         </div>
                         <div>
-                            <!-- 🔴 เพิ่มช่องกรอกจำนวน (Print Quantity) -->
                             <label class="text-[10px] text-blue-600 uppercase font-bold tracking-wider">4. จำนวน (Print Qty) <span class="text-red-500">*</span></label>
                             <input type="number" id="ocr-qty" class="w-full border-b-2 border-blue-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition bg-blue-50 px-2 rounded-t-md" value="${safeQty}" placeholder="ระบุจำนวน">
                         </div>
@@ -635,10 +650,15 @@ function renderScanView(container) {
                     </div>
                     <button onclick="changeJob()" class="text-[10px] text-blue-600 border border-blue-600 px-2 py-1 rounded bg-white font-bold"><i class="fa-solid fa-pen"></i> เปลี่ยน</button>
                 </div>
-                <div class="bg-black flex justify-center items-center h-48 relative border-b">
-                    <img src="${capturedImageBase64 || ''}" class="w-full h-full object-contain" />
-                    <button onclick="retakePhoto()" class="absolute bottom-2 right-2 bg-black/60 text-white px-3 py-1.5 rounded-lg text-xs backdrop-blur-sm border border-white/20 shadow"><i class="fa-solid fa-rotate-right mr-1"></i> ถ่ายใหม่</button>
+                
+                <!-- 🛡️ ทำให้พื้นที่รูปภาพสามารถคลิกขยายได้ -->
+                <div class="bg-black flex justify-center items-center h-48 relative border-b cursor-pointer" onclick="if('${capturedImageBase64}') showImageModal('${capturedImageBase64}')" title="คลิกเพื่อขยายรูปภาพ">
+                    <div class="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs backdrop-blur-sm pointer-events-none z-10"><i class="fa-solid fa-magnifying-glass-plus"></i> ขยาย</div>
+                    <img src="${capturedImageBase64 || ''}" class="w-full h-full object-contain pointer-events-none" />
+                    
+                    <button onclick="event.stopPropagation(); retakePhoto()" class="absolute bottom-2 right-2 bg-black/60 text-white px-3 py-1.5 rounded-lg text-xs backdrop-blur-sm border border-white/20 shadow z-10"><i class="fa-solid fa-rotate-right mr-1"></i> ถ่ายใหม่</button>
                 </div>
+                
                 <div class="p-4 bg-white overflow-y-auto">
                     ${innerContent}
                 </div>
@@ -663,7 +683,7 @@ function changeJob() {
         if (typeof extractedModel !== 'undefined') extractedModel = "";
         if (typeof extractedLot !== 'undefined') extractedLot = "";
         if (typeof extractedDate !== 'undefined') extractedDate = "";
-        if (typeof extractedQty !== 'undefined') extractedQty = ""; // เคลียร์ค่าจำนวน
+        if (typeof extractedQty !== 'undefined') extractedQty = ""; 
     } catch(e) {}
     
     stopCamera(); 
@@ -671,7 +691,6 @@ function changeJob() {
 }
 
 function submitToQC() {
-    // ตรวจสอบว่ากรอกจำนวนหรือยัง
     const qtyInput = document.getElementById('ocr-qty');
     if (qtyInput && !qtyInput.value.trim()) {
         return showCustomAlert("กรุณาระบุ 'จำนวน (Print Qty)' ก่อนส่งให้ QC ตรวจสอบ");
@@ -705,7 +724,7 @@ function submitToQC() {
             model: document.getElementById('ocr-model').value,
             lot: document.getElementById('ocr-lot').value,
             date: document.getElementById('ocr-date').value,
-            qty: qtyInput ? qtyInput.value.trim() : '', // แนบค่าจำนวนไปกับ API ด้วย
+            qty: qtyInput ? qtyInput.value.trim() : '', 
             operator: currentUser.name,
             image: reducedImageBase64
         };
@@ -824,7 +843,6 @@ function renderInboxView(container) {
         let statusIcon = t.status === 'pending' ? '<i class="fa-solid fa-clock"></i> รอตรวจ' : 
                          t.status === 'approved' ? '<i class="fa-solid fa-check-circle"></i> ผ่าน' : '<i class="fa-solid fa-times-circle"></i> ปฏิเสธ';
 
-        // ใช้ฟังก์ชันแปลงวันที่ ที่เราสร้างขึ้นใหม่
         let cleanTime = formatDisplayDate(t.timestamp).split(' ')[1] || formatDisplayDate(t.timestamp);
 
         html += `
@@ -893,9 +911,13 @@ function renderTicketDetail(container) {
                     </div>
                     <span class="font-bold ${statusColor} uppercase text-sm flex-shrink-0">${t.status}</span>
                 </div>
-                <div class="p-4 bg-black flex justify-center">
-                    <img src="${getDriveImageUrl(t.imageUrl)}" class="max-h-80 object-contain rounded border border-gray-700" onerror="this.src='https://via.placeholder.com/400x300?text=Image+Not+Found'">
+                
+                <!-- 🛡️ ทำให้พื้นที่รูปภาพสามารถคลิกขยายได้ โดยดึงรูปความละเอียดสูง (w1920) -->
+                <div class="p-4 bg-black flex justify-center relative cursor-pointer" onclick="showImageModal('${t.imageUrl ? getDriveImageUrl(t.imageUrl, 'w1920') : ''}')" title="คลิกเพื่อขยายรูปภาพ">
+                    <div class="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs backdrop-blur-sm pointer-events-none z-10"><i class="fa-solid fa-magnifying-glass-plus"></i> ขยาย</div>
+                    <img src="${getDriveImageUrl(t.imageUrl)}" class="max-h-80 object-contain rounded border border-gray-700 pointer-events-none" onerror="this.src='https://via.placeholder.com/400x300?text=Image+Not+Found'">
                 </div>
+                
                 <div class="p-5 space-y-4">
                     <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
                         <h3 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1">ข้อมูลที่สกัดได้จากฉลาก</h3>
