@@ -255,13 +255,7 @@ function renderScanView(container) {
                     </div>
                 </div>
                 <div class="flex-1 w-full h-full flex justify-center items-center relative overflow-hidden">
-                    <video id="video" class="w-full h-full object-contain" autoplay playsinline></video>
-                    <div class="absolute inset-0 pointer-events-none flex justify-center items-center p-8">
-                        <div class="w-full max-w-sm aspect-[4/3] border-2 border-white/50 rounded-xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]">
-                            <div class="absolute top-1/2 left-0 w-full border-t border-red-500/50"></div>
-                            <div class="absolute top-0 left-1/2 h-full border-l border-red-500/50"></div>
-                        </div>
-                    </div>
+                    <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
                     <div class="scanner-line z-10" id="scanner-line"></div>
                 </div>
                 <div class="absolute bottom-0 w-full p-8 flex justify-center items-center z-20 pb-safe bg-gradient-to-t from-black/80 to-transparent">
