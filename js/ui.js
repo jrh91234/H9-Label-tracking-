@@ -25,6 +25,16 @@ function updateBadgeAndNotify(tickets) {
 
     const pendingCount = pendingTickets.length;
     
+    // 🟢 [อัปเดตแบบไม่กระพริบ] เปลี่ยนเฉพาะตัวเลขในเมนูด้านล่าง
+    const navBadgeContainer = document.getElementById('nav-inbox-badge-container');
+    if (navBadgeContainer) {
+        if (pendingCount > 0) {
+            navBadgeContainer.innerHTML = `<span class="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-sm">${pendingCount}</span>`;
+        } else {
+            navBadgeContainer.innerHTML = '';
+        }
+    }
+    
     if ('setAppBadge' in navigator) {
         if (pendingCount > 0) {
             navigator.setAppBadge(pendingCount).catch(e => console.log(e));
@@ -181,19 +191,10 @@ function exportTicketsToCSV() {
         let cleanTime = formatDisplayDate(t.timestamp); 
         let cleanActionTime = formatDisplayDate(t.actionTime);
         let row = [
-            `"${t.id}"`, 
-            `"${t.jobOrder}"`, 
-            `"${t.model}"`, 
-            `"${t.lot}"`, 
-            `"${t.date}"`, 
-            `"${t.qty || '-'}"`, 
-            `"${t.operator}"`, 
-            `"${t.status}"`, 
-            `"${t.qc || '-'}"`, 
-            `"${cleanTime}"`, 
-            `"${cleanActionTime}"`, 
-            `"${t.rejectReason || '-'}"`, 
-            `"${t.imageUrl || '-'}"`
+            `"${t.id}"`, `"${t.jobOrder}"`, `"${t.model}"`, `"${t.lot}"`, 
+            `"${t.date}"`, `"${t.qty || '-'}"`, `"${t.operator}"`, `"${t.status}"`, 
+            `"${t.qc || '-'}"`, `"${cleanTime}"`, `"${cleanActionTime}"`, 
+            `"${t.rejectReason || '-'}"`, `"${t.imageUrl || '-'}"`
         ];
         csvContent += row.join(",") + "\n";
     });
@@ -384,7 +385,7 @@ function handleRefresh(event) {
     }
     
     if (currentTab === 'admin') fetchUsersList(); 
-    else fetchPeriodicData(false);
+    else fetchPeriodicData(true); // บังคับให้โหลดและวาดหน้าจอใหม่ทันทีเมื่อกดปุ่ม
 }
 
 function fetchInitialData() {
@@ -415,32 +416,52 @@ function fetchTickets() {
         .catch(err => console.error("โหลดข้อมูล Inbox ผิดพลาด: ", err));
 }
 
-function fetchPeriodicData(isInitialLoad = false) {
+// 🟢 [อัปเดตแบบไม่กระพริบ] ฟังก์ชันนี้จะอัปเดตเฉพาะข้อมูลภายใน (DOM) ไม่สั่ง Re-render ทั้งหน้า 
+function fetchPeriodicData(forceRender = false) {
     Promise.all([
-        fetch(`${API_URL}?action=getTickets`).then(res => res.json()).catch(() => []),
-        fetch(`${API_URL}?action=getBatches`).then(res => res.json()).catch(() => [])
+        fetch(`${API_URL}?action=getTickets`).then(res => res.json()).catch(() => null),
+        fetch(`${API_URL}?action=getBatches`).then(res => res.json()).catch(() => null)
     ]).then(([ticketsData, batchesData]) => {
-        dbTickets = ticketsData || []; 
-        updateBadgeAndNotify(dbTickets); 
+        let ticketsChanged = false;
+        let batchesChanged = false;
         
-        const newBatches = batchesData || [];
-        if (currentUser && (currentUser.role === 'qc' || currentUser.role === 'supervisor' || currentUser.role === 'admin')) {
-            const storedBatchCount = parseInt(localStorage.getItem('qc_batch_count') || '0');
-            if (!isInitialLoad && newBatches.length > storedBatchCount) {
-                const newPrints = newBatches.length - storedBatchCount;
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    new Notification('🖨️ สัญญาณแจ้งเตือนการปริ้น!', { 
-                        body: `ฝ่ายผลิตสั่งปริ้นฉลากใหม่จำนวน ${newPrints} รายการ`, 
-                        icon: 'https://cdn-icons-png.flaticon.com/512/732/732220.png' 
-                    });
-                }
-            }
-            localStorage.setItem('qc_batch_count', newBatches.length.toString());
+        if (ticketsData) {
+            ticketsChanged = JSON.stringify(dbTickets) !== JSON.stringify(ticketsData);
+            dbTickets = ticketsData; 
+            updateBadgeAndNotify(dbTickets); // จะไปแก้ตัวเลขบนไอคอนจดหมายให้เอง
         }
         
-        dbBatches = newBatches;
-        if (currentTab === 'inbox') renderMainApp();
-        if (currentTab === 'scan' && !currentSelectedJob && !isDefectMode) renderMainApp();
+        if (batchesData) {
+            const newBatches = batchesData || [];
+            batchesChanged = JSON.stringify(dbBatches) !== JSON.stringify(newBatches);
+            
+            if (currentUser && (currentUser.role === 'qc' || currentUser.role === 'supervisor' || currentUser.role === 'admin')) {
+                const storedBatchCount = parseInt(localStorage.getItem('qc_batch_count') || '0');
+                if (newBatches.length > storedBatchCount && autoFetchInterval !== null) {
+                    const newPrints = newBatches.length - storedBatchCount;
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification('🖨️ สัญญาณแจ้งเตือนการปริ้น!', { 
+                            body: `ฝ่ายผลิตสั่งปริ้นฉลากใหม่จำนวน ${newPrints} รายการ`, 
+                            icon: 'https://cdn-icons-png.flaticon.com/512/732/732220.png' 
+                        });
+                    }
+                }
+                localStorage.setItem('qc_batch_count', newBatches.length.toString());
+            }
+            dbBatches = newBatches;
+        }
+        
+        if (forceRender) {
+            renderMainApp();
+        } else {
+            // อัปเดตรายการที่เฉพาะเจาะจง (หลีกเลี่ยงการวาดหน้าจอใหม่)
+            if (ticketsChanged && currentTab === 'inbox') {
+                updateInboxListUI(); 
+            }
+            if (batchesChanged && currentTab === 'scan' && !currentSelectedJob && !isDefectMode) {
+                updateBatchDropdownUI();
+            }
+        }
     }).catch(err => console.error("โหลดข้อมูล Periodic ผิดพลาด: ", err));
 }
 
@@ -485,26 +506,7 @@ function switchTab(tab) {
 
 function renderMainApp() {
     const appDiv = document.getElementById('app');
-    let pendingCount = 0;
     
-    if (currentUser) {
-        let baseTickets = dbTickets.filter(t => {
-            const tDate = parseTicketDate(t.timestamp);
-            if (!tDate) return true;
-            if (inboxStartDate && tDate < inboxStartDate) return false;
-            if (inboxEndDate && tDate > inboxEndDate) return false;
-            return true;
-        });
-        
-        if (currentUser.role !== 'admin') {
-            baseTickets = baseTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
-        }
-        if (currentUser.role === 'operator') {
-            baseTickets = baseTickets.filter(t => t.operator === currentUser.name);
-        }
-        pendingCount = baseTickets.filter(t => t.status === 'pending').length;
-    }
-
     const isFullscreenCamera = currentTab === 'scan' && (currentSelectedJob || isDefectMode) && !capturedImageBase64 && !isProcessingOCR;
 
     if (isFullscreenCamera) {
@@ -537,7 +539,9 @@ function renderMainApp() {
                 <button onclick="switchTab('inbox')" class="flex flex-col items-center p-2 w-full relative ${currentTab === 'inbox' ? 'text-blue-600' : 'text-gray-400'}">
                     <div class="relative">
                         <i class="fa-solid fa-inbox text-xl mb-1"></i>
-                        ${pendingCount > 0 ? `<span class="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center">${pendingCount}</span>` : ''}
+                        <div id="nav-inbox-badge-container">
+                            <!-- Badge จะถูกใส่ที่นี่อัตโนมัติผ่าน updateBadgeAndNotify() -->
+                        </div>
                     </div>
                     <span class="text-[10px] font-medium mt-1">กล่องข้อความ</span>
                 </button>
@@ -549,6 +553,9 @@ function renderMainApp() {
                 ` : ''}
             </nav>
         `;
+        
+        // สั่งอัปเดตตัวเลขแจ้งเตือนให้ตรงกับปัจจุบันทันทีที่วาดเมนูเสร็จ
+        updateBadgeAndNotify(dbTickets);
     }
     renderContent();
 }
@@ -761,15 +768,83 @@ function executeDeleteUser(username) {
 // ==========================================
 // RENDER VIEWS (SCAN)
 // ==========================================
+
+// 🟢 ตัวสร้าง HTML สำหรับ Dropdown ของ Batch เพื่อให้อัปเดตได้โดยไม่กระพริบ
+function getBatchOptionsHTML() {
+    let options = '';
+    if (isLoadingJobs) {
+        options = `<option value="">⏳ กำลังตรวจสอบเครื่องปริ้น...</option>`;
+    } else {
+        if (dbBatches.length === 0) {
+            options = `<option value="">❌ ไม่พบคิวการปริ้น (กรุณาสั่งปริ้นก่อนเข้าแอป)</option>`;
+        } else {
+            options = `<option value="">-- เลือกเลข Batch ที่เพิ่งปริ้น --</option>` + dbBatches.map(b => {
+                let cleanDocName = b.docName ? b.docName.split('\\').pop().split('/').pop() : 'Unknown';
+                return `<option value="${b.batchNo}">${b.batchNo} (ไฟล์: ${cleanDocName} | ${b.timestamp.split(' ')[1]})</option>`;
+            }).join('');
+        }
+        
+        // ตัวเลือกสำหรับสร้าง ID กรณีเน็ตเวิร์กที่เครื่องปริ้นหลุด 
+        options += `<option value="MANUAL" class="text-red-600 font-bold">⚠️ ฉุกเฉิน: ไม่พบเลขในระบบ (กรอกเอง)</option>`;
+    }
+    return options;
+}
+
+// 🟢 อัปเดต Dropdown โดยไม่กระพริบ
+function updateBatchDropdownUI() {
+    const select = document.getElementById('batch-selector');
+    if (select) {
+        const currentVal = select.value;
+        select.innerHTML = getBatchOptionsHTML();
+        // พยายามเก็บค่าที่เคยเลือกไว้ ถ้ายังมีอยู่ในตัวเลือก
+        if (currentVal && select.querySelector(`option[value="${currentVal}"]`)) {
+            select.value = currentVal;
+        }
+    }
+    
+    // อัปเดตปุ่มกดต่างๆ
+    const defectBtn = document.getElementById('defect-mode-btn');
+    if (defectBtn && dbBatches) {
+         defectBtn.disabled = dbBatches.length === 0 && !document.getElementById('manual-batch-input')?.value;
+    }
+}
+
+// 🟢 เพิ่มฟังก์ชันเปิด/ปิดกล่องกรอกเลข Batch แบบ Manual (รองรับกรณี Network ขัดข้อง)
+window.toggleManualBatchInput = function() {
+    const select = document.getElementById('batch-selector');
+    const container = document.getElementById('manual-batch-container');
+    const input = document.getElementById('manual-batch-input');
+    
+    if (select && container && input) {
+        if (select.value === 'MANUAL') {
+            container.style.display = 'block';
+            
+            // 🟢 สร้างรหัสฉุกเฉินอัตโนมัติ ถ้าช่องยังว่างอยู่ 
+            if (!input.value) {
+                const d = new Date();
+                const y = String(d.getFullYear()).slice(-2);
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const h = String(d.getHours()).padStart(2, '0');
+                const min = String(d.getMinutes()).padStart(2, '0');
+                const sec = String(d.getSeconds()).padStart(2, '0');
+                
+                // ใส่ [NET-ERR] ต่อท้ายเพื่อให้รู้ว่าเกิดจากอะไร
+                input.value = `B-${y}${m}${day}-${h}${min}${sec} [NET-ERR]`;
+            }
+        } else {
+            container.style.display = 'none';
+        }
+    }
+};
+
 function renderScanView(container) {
     if (!currentSelectedJob && !isDefectMode) {
         let jobOptions = "";
-        let batchOptions = `<option value="">-- เลือกเลข Batch ที่เพิ่งปริ้น --</option>`;
         let isSelectDisabled = false;
 
         if (isLoadingJobs) {
             jobOptions = `<option value="">⏳ กำลังโหลดแผนจาก API...</option>`;
-            batchOptions = `<option value="">⏳ กำลังตรวจสอบเครื่องปริ้น...</option>`;
             isSelectDisabled = true;
         } else {
             if (dbJobs.length === 0) {
@@ -777,13 +852,6 @@ function renderScanView(container) {
                 isSelectDisabled = true;
             } else {
                 jobOptions = `<option value="">-- เลือก Job Order --</option>` + dbJobs.map(j => `<option value="${j.job}">${j.job} (Model: ${j.targetModel})</option>`).join('');
-            }
-            
-            if (dbBatches.length === 0) {
-                batchOptions = `<option value="">❌ ไม่พบคิวการปริ้น (กรุณาสั่งปริ้นก่อนเข้าแอป)</option>`;
-                isSelectDisabled = true; 
-            } else {
-                batchOptions += dbBatches.map(b => `<option value="${b.batchNo}">${b.batchNo} (เวลา: ${b.timestamp.split(' ')[1]})</option>`).join('');
             }
         }
 
@@ -802,26 +870,26 @@ function renderScanView(container) {
                     <p class="text-xs text-blue-600 font-bold mb-1">
                         <i class="fa-solid fa-print"></i> เลือกรหัสเครื่องปริ้น (Batch No)
                     </p>
-                    <select id="batch-selector" class="w-full p-3 border-2 border-blue-200 rounded-lg bg-blue-50 text-base font-bold mb-6 text-blue-800" ${isSelectDisabled ? 'disabled' : ''}>
-                        ${batchOptions}
+                    <select id="batch-selector" onchange="toggleManualBatchInput()" class="w-full p-3 border-2 border-blue-200 rounded-lg bg-blue-50 text-base font-bold mb-2 text-blue-800" ${isSelectDisabled ? 'disabled' : ''}>
+                        ${getBatchOptionsHTML()}
                     </select>
+                    
+                    <!-- 🟢 กล่องกรอกข้อมูลกรณีฉุกเฉิน (จะซ่อนไว้ก่อน) -->
+                    <div id="manual-batch-container" style="display: none;" class="mb-6 fade-in">
+                        <label class="block text-[10px] text-red-500 uppercase font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> รหัสอ้างอิงสร้างอัตโนมัติเนื่องจาก Network ปลายทางขาดการเชื่อมต่อ</label>
+                        <input type="text" id="manual-batch-input" class="w-full p-3 border-2 border-red-300 rounded-lg bg-red-50 text-red-800 font-bold outline-none focus:border-red-500 transition" placeholder="พิมพ์เลข Batch / อ้างอิงฉุกเฉิน...">
+                    </div>
 
-                    <div class="grid grid-cols-2 gap-2 mt-2">
+                    <div class="${isSelectDisabled ? 'mt-6' : ''} grid grid-cols-2 gap-2 mt-2">
                         <button onclick="selectJobAndStartCamera()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition disabled:opacity-50 flex flex-col justify-center items-center gap-1" ${isSelectDisabled ? 'disabled' : ''}>
                             <i class="fa-solid fa-camera text-xl"></i> 
                             <span class="text-sm">สแกนปกติ</span>
                         </button>
-                        <button onclick="startDefectMode()" class="w-full py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg shadow-md transition disabled:opacity-50 flex flex-col justify-center items-center gap-1" ${dbBatches.length === 0 ? 'disabled' : ''}>
+                        <button id="defect-mode-btn" onclick="startDefectMode()" class="w-full py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg shadow-md transition disabled:opacity-50 flex flex-col justify-center items-center gap-1" ${isSelectDisabled ? 'disabled' : ''}>
                             <i class="fa-solid fa-trash-can text-xl"></i> 
                             <span class="text-sm">แจ้งปริ้นเสีย</span>
                         </button>
                     </div>
-                    
-                    ${dbBatches.length === 0 && !isLoadingJobs ? `
-                        <p class="text-xs text-red-500 text-center mt-3">
-                            <i class="fa-solid fa-triangle-exclamation"></i> ระบบป้องกันความผิดพลาด: คุณต้องสั่งปริ้นจากเครื่องคอมพิวเตอร์ก่อน จึงจะสามารถเปิดกล้องสแกนได้
-                        </p>
-                    ` : ''}
                 </div>
             </div>
         `;
@@ -869,7 +937,7 @@ function renderScanView(container) {
 
     let innerContent = '';
     
-    // 🟢 หน้าต่างสำหรับโหมดงานเสีย
+    // หน้าต่างสำหรับโหมดงานเสีย
     if (isDefectMode) {
         innerContent = `
             <div class="space-y-4">
@@ -1007,24 +1075,34 @@ function renderScanView(container) {
     `;
 }
 
+// 🟢 ฟังก์ชันดึงค่า Batch (รับมือกับกรณีพิมพ์เอง)
+function getSelectedBatchValue() {
+    let val = document.getElementById('batch-selector') ? document.getElementById('batch-selector').value : null;
+    
+    // ถ้าผู้ใช้เลือกโหมดฉุกเฉิน ให้ไปดึงค่าจากช่อง Input ที่พิมพ์เองแทน
+    if (val === 'MANUAL') {
+        val = document.getElementById('manual-batch-input') ? document.getElementById('manual-batch-input').value.trim() : "";
+    }
+    return val;
+}
+
 function selectJobAndStartCamera() {
     currentSelectedJob = document.getElementById('job-selector').value;
-    currentSelectedBatch = document.getElementById('batch-selector') ? document.getElementById('batch-selector').value : null;
+    currentSelectedBatch = getSelectedBatchValue();
 
     if(!currentSelectedJob) return showCustomAlert("กรุณาเลือก Job Order ก่อนครับ");
-    if(!currentSelectedBatch) return showCustomAlert("กรุณาเลือกเลข Batch ที่ส่งมาจากเครื่องปริ้นก่อนครับ");
+    if(!currentSelectedBatch) return showCustomAlert("กรุณาเลือกหรือกรอกเลข Batch อ้างอิง ก่อนครับ");
 
     isDefectMode = false;
     renderMainApp();
 }
 
-// 🟢 ฟังก์ชันสำหรับปุ่มแจ้งเสีย
 function startDefectMode() {
-    currentSelectedBatch = document.getElementById('batch-selector') ? document.getElementById('batch-selector').value : null;
-    if(!currentSelectedBatch) return showCustomAlert("กรุณาเลือกเลข Batch ที่ต้องการแจ้งเสียก่อนครับ");
+    currentSelectedBatch = getSelectedBatchValue();
+    if(!currentSelectedBatch) return showCustomAlert("กรุณาเลือกหรือกรอกเลข Batch อ้างอิงที่ต้องการแจ้งเสียก่อนครับ");
     
     isDefectMode = true;
-    currentSelectedJob = "DEFECT"; // Dummy ข้ามการเช็ค Job
+    currentSelectedJob = "DEFECT"; 
     renderMainApp();
 }
 
@@ -1123,7 +1201,6 @@ function submitToQC() {
     img.src = capturedImageBase64;
 }
 
-// 🟢 ฟังก์ชันส่งข้อมูลงานเสีย
 function submitDefectToQC() {
     const qtyInput = document.getElementById('defect-qty');
     const reasonInput = document.getElementById('defect-reason');
@@ -1192,14 +1269,14 @@ let inboxEndDate = getTodayDateString();
 
 function setInboxFilter(filter) { 
     currentInboxFilter = filter; 
-    renderMainApp(); 
+    updateInboxListUI(); // 🟢 ใช้การวาดใหม่แค่ส่วนของกล่องข้อความ
 }
 
 function executeInboxSearch() { 
     const input = document.getElementById('inbox-search-input'); 
     if (input) { 
         inboxSearchTerm = input.value.trim().toLowerCase(); 
-        renderMainApp(); 
+        updateInboxListUI(); // 🟢 วาดแค่รายการใหม่
     } 
 }
 
@@ -1210,11 +1287,13 @@ function executeInboxDateFilter() {
     if (startInput) inboxStartDate = startInput.value; 
     if (endInput) inboxEndDate = endInput.value; 
     
-    renderMainApp();
+    updateInboxListUI(); // 🟢 วาดแค่รายการใหม่
 }
 
-function renderInboxView(container) {
+// 🟢 ตัวสร้าง HTML ภายในกล่องข้อความ (เพื่อให้ไม่กระพริบเวลาอัปเดต)
+function getInboxListHTML() {
     let baseTickets = dbTickets;
+    
     if (currentUser.role !== 'admin') {
         baseTickets = baseTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
     }
@@ -1230,8 +1309,6 @@ function renderInboxView(container) {
         return true;
     });
 
-    let pendingCount = baseTickets.filter(t => t.status === 'pending').length;
-    let processedCount = baseTickets.filter(t => t.status !== 'pending').length;
     let displayTickets = baseTickets.filter(t => currentInboxFilter === 'pending' ? t.status === 'pending' : t.status !== 'pending');
 
     if (inboxSearchTerm) {
@@ -1244,41 +1321,7 @@ function renderInboxView(container) {
     
     displayTickets.sort((a, b) => b.id.localeCompare(a.id));
 
-    let html = `
-        <div class="max-w-2xl mx-auto flex flex-col h-full fade-in">
-            <div class="bg-white px-4 pt-4 pb-2 shadow-sm z-10 sticky top-0">
-                <h2 class="font-bold text-gray-800 text-lg mb-3 flex items-center">
-                    <i class="fa-solid fa-envelope-open-text text-blue-500 mr-2 text-xl"></i> กล่องข้อความ
-                </h2>
-                <div class="flex gap-2 mb-3">
-                    <div class="flex-1">
-                        <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">ตั้งแต่วันที่</label>
-                        <input type="date" id="inbox-start-date" value="${inboxStartDate}" onchange="executeInboxDateFilter()" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
-                    </div>
-                    <div class="flex-1">
-                        <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">ถึงวันที่</label>
-                        <input type="date" id="inbox-end-date" value="${inboxEndDate}" onchange="executeInboxDateFilter()" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
-                    </div>
-                </div>
-                <div class="relative flex gap-2 mb-3">
-                    <div class="relative flex-1">
-                        <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
-                        <input type="text" id="inbox-search-input" placeholder="ค้นหา Job, Model, Lot..." class="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition" value="${inboxSearchTerm}" onkeypress="if(event.key === 'Enter') executeInboxSearch()">
-                    </div>
-                    <button onclick="executeInboxSearch()" class="bg-gray-800 text-white px-4 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-700 transition">ค้นหา</button>
-                </div>
-                <div class="flex bg-gray-100 p-1 rounded-lg">
-                    <button onclick="setInboxFilter('pending')" class="flex-1 py-2 text-sm font-bold rounded-md transition flex justify-center items-center gap-1.5 ${currentInboxFilter === 'pending' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
-                        รอตรวจสอบ ${pendingCount > 0 ? `<span class="${currentInboxFilter === 'pending' ? 'bg-red-500' : 'bg-gray-400'} text-white text-[10px] px-1.5 py-0.5 rounded-full">${pendingCount}</span>` : ''}
-                    </button>
-                    <button onclick="setInboxFilter('processed')" class="flex-1 py-2 text-sm font-bold rounded-md transition flex justify-center items-center gap-1.5 ${currentInboxFilter === 'processed' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
-                        ดำเนินการแล้ว ${processedCount > 0 ? `<span class="${currentInboxFilter === 'processed' ? 'bg-gray-600' : 'bg-gray-400'} text-white text-[10px] px-1.5 py-0.5 rounded-full">${processedCount}</span>` : ''}
-                    </button>
-                </div>
-            </div>
-            <div class="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
-    `;
-    
+    let html = '';
     if (displayTickets.length === 0) {
         html += `
             <div class="text-center text-gray-500 py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
@@ -1321,8 +1364,84 @@ function renderInboxView(container) {
         `;
     });
     
-    html += `</div></div>`; 
+    return html;
+}
+
+// 🟢 อัปเดต UI หน้ากล่องข้อความแบบไม่กระพริบ
+function updateInboxListUI() {
+    const listEl = document.getElementById('inbox-ticket-list');
+    if (listEl) {
+        listEl.innerHTML = getInboxListHTML();
+    }
+    
+    // อัปเดตตัวเลขแจ้งเตือนในแท็บย่อยด้วย
+    let baseTickets = dbTickets;
+    if (currentUser.role !== 'admin') baseTickets = baseTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
+    if (currentUser.role === 'operator') baseTickets = baseTickets.filter(t => t.operator === currentUser.name);
+    
+    baseTickets = baseTickets.filter(t => {
+        const tDate = parseTicketDate(t.timestamp);
+        if (!tDate) return true; 
+        if (inboxStartDate && tDate < inboxStartDate) return false;
+        if (inboxEndDate && tDate > inboxEndDate) return false;
+        return true;
+    });
+
+    let pendingCount = baseTickets.filter(t => t.status === 'pending').length;
+    let processedCount = baseTickets.filter(t => t.status !== 'pending').length;
+    
+    const badgesContainer = document.getElementById('inbox-filter-badges');
+    if (badgesContainer) {
+        badgesContainer.innerHTML = `
+            <button onclick="setInboxFilter('pending')" class="flex-1 py-2 text-sm font-bold rounded-md transition flex justify-center items-center gap-1.5 ${currentInboxFilter === 'pending' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                รอตรวจสอบ ${pendingCount > 0 ? `<span class="${currentInboxFilter === 'pending' ? 'bg-red-500' : 'bg-gray-400'} text-white text-[10px] px-1.5 py-0.5 rounded-full">${pendingCount}</span>` : ''}
+            </button>
+            <button onclick="setInboxFilter('processed')" class="flex-1 py-2 text-sm font-bold rounded-md transition flex justify-center items-center gap-1.5 ${currentInboxFilter === 'processed' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                ดำเนินการแล้ว ${processedCount > 0 ? `<span class="${currentInboxFilter === 'processed' ? 'bg-gray-600' : 'bg-gray-400'} text-white text-[10px] px-1.5 py-0.5 rounded-full">${processedCount}</span>` : ''}
+            </button>
+        `;
+    }
+}
+
+function renderInboxView(container) {
+    let html = `
+        <div class="max-w-2xl mx-auto flex flex-col h-full fade-in">
+            <div class="bg-white px-4 pt-4 pb-2 shadow-sm z-10 sticky top-0">
+                <h2 class="font-bold text-gray-800 text-lg mb-3 flex items-center">
+                    <i class="fa-solid fa-envelope-open-text text-blue-500 mr-2 text-xl"></i> กล่องข้อความ
+                </h2>
+                
+                <div class="flex gap-2 mb-3">
+                    <div class="flex-1">
+                        <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">ตั้งแต่วันที่</label>
+                        <input type="date" id="inbox-start-date" value="${inboxStartDate}" onchange="executeInboxDateFilter()" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">ถึงวันที่</label>
+                        <input type="date" id="inbox-end-date" value="${inboxEndDate}" onchange="executeInboxDateFilter()" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                </div>
+                
+                <div class="relative flex gap-2 mb-3">
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
+                        <input type="text" id="inbox-search-input" placeholder="ค้นหา Job, Model, Lot..." class="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition" value="${inboxSearchTerm}" onkeypress="if(event.key === 'Enter') executeInboxSearch()">
+                    </div>
+                    <button onclick="executeInboxSearch()" class="bg-gray-800 text-white px-4 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-700 transition">ค้นหา</button>
+                </div>
+                
+                <div id="inbox-filter-badges" class="flex bg-gray-100 p-1 rounded-lg">
+                    <!-- โหลดแท็บจากอัปเดตอัตโนมัติ -->
+                </div>
+            </div>
+            <div id="inbox-ticket-list" class="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
+                <!-- โหลดรายการจากอัปเดตอัตโนมัติ -->
+            </div>
+        </div>
+    `;
+    
     container.innerHTML = html;
+    updateInboxListUI(); // วาดข้อมูลรายการใส่ลงไป
 }
 
 function openTicket(id) { 
@@ -1454,10 +1573,12 @@ function initApp() {
         try {
             currentUser = JSON.parse(savedUser);
             if (!currentUser || !currentUser.role) throw new Error("Invalid Session Data");
+            
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
             requestNotificationPermission(); 
             fetchInitialData(); 
             startAutoFetch(); 
+            
         } catch (e) { 
             localStorage.removeItem('qc_app_user'); 
             currentUser = null; 
