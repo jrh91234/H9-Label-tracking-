@@ -1,9 +1,135 @@
 // ==========================================
 // SYSTEM CONFIGURATION (ตั้งค่าระบบ)
 // ==========================================
-// 🟢 เปลี่ยนเป็น true เมื่อต้องการปิดปรับปรุงระบบ เพื่อบล็อกการเข้าถึง Database
 const IS_MAINTENANCE_MODE = false; 
 const MAINTENANCE_MESSAGE = "กำลังดำเนินการอัปเกรดและเพิ่มฟีเจอร์ใหม่<br>กรุณากลับมาใช้งานอีกครั้งในภายหลังครับ";
+
+// ==========================================
+// MULTI-LANGUAGE SYSTEM (ระบบแปลภาษา)
+// ==========================================
+let currentLang = localStorage.getItem('qc_lang') || 'TH';
+
+const EN_DICT = {
+    "Label QC System": "Label QC System",
+    "กรุณาลงชื่อเข้าสู่ระบบ": "Please sign in to your account",
+    "Username": "Username",
+    "ระบุชื่อผู้ใช้งาน": "Enter username",
+    "Password": "Password",
+    "ระบุรหัสผ่าน": "Enter password",
+    "เข้าสู่ระบบ": "Sign In",
+    "กำลังตรวจสอบ...": "Checking...",
+    "ระบบกำลังปิดปรับปรุง": "System Maintenance",
+    "กำลังดำเนินการอัปเกรดและเพิ่มฟีเจอร์ใหม่<br>กรุณากลับมาใช้งานอีกครั้งในภายหลังครับ": "System is being upgraded.<br>Please try again later.",
+    "ออกจากระบบ": "Log Out",
+    "คุณต้องการออกจากระบบใช่หรือไม่?": "Are you sure you want to log out?",
+    "ยกเลิก": "Cancel",
+    "ยืนยัน": "Confirm",
+    "รีเฟรชข้อมูล": "Refresh Data",
+    "เปลี่ยนรหัสผ่าน": "Change Password",
+    "รหัสผ่านใหม่": "New Password",
+    "อย่างน้อย 4 ตัวอักษร": "At least 4 characters",
+    "ยืนยันรหัสผ่านใหม่": "Confirm New Password",
+    "กรอกรหัสผ่านใหม่อีกครั้ง": "Re-enter new password",
+    "บันทึก": "Save",
+    "สแกน Label": "Scan Label",
+    "กล่องข้อความ": "Inbox",
+    "จัดการผู้ใช้": "Manage Users",
+    "เตรียมการสแกน": "Prepare Scan",
+    "เลือก Job Order": "Select Job Order",
+    "เลือกรหัสเครื่องปริ้น (Batch No)": "Select Printer Batch",
+    "สแกนปกติ": "Normal Scan",
+    "แจ้งปริ้นเสีย": "Report Defect",
+    "ถ่ายรูปหลักฐานงานเสีย": "Take Defect Evidence",
+    "โหมดบันทึกงานเสีย": "Defect Recording Mode",
+    "ถ่ายใหม่": "Retake",
+    "เปลี่ยน": "Change",
+    "Job ปัจจุบัน": "Current Job",
+    "แจ้งปัญหาการปริ้น": "Report Print Issue",
+    "บันทึกข้อมูลงานเสีย (Defect)": "Record Defect Data",
+    "จำนวนที่ปริ้นเสีย (ดวง)": "Defect Qty (pcs)",
+    "ระบุจำนวน": "Enter quantity",
+    "สาเหตุ / อาการเสีย": "Defect Reason / Symptom",
+    "เช่น กระดาษติด, หมึกจาง, ปริ้นเทสระบบ...": "e.g. Paper jam, faded ink, test print...",
+    "บันทึกข้อมูลงานเสีย": "Save Defect Data",
+    "ผลลัพธ์ที่ AI อ่านได้": "AI Reading Result",
+    "วันที่ผลิต": "MFG Date",
+    "จำนวน (Print Qty)": "Quantity (Print Qty)",
+    "กดตรวจสอบความถูกต้อง": "Verify Data",
+    "ผลตรวจสอบ: ผ่าน (PASS)": "Result: PASS",
+    "ผลตรวจสอบ: พบข้อผิดพลาด (NG)": "Result: ERROR (NG)",
+    "ส่งเป็นข้อมูลทดสอบระบบ": "Send as test data",
+    "ส่งผลตรวจสอบให้ QC": "Submit to QC",
+    "ตั้งแต่วันที่": "From Date",
+    "ถึงวันที่": "To Date",
+    "ค้นหา": "Search",
+    "ค้นหา Job, Model, Lot...": "Search Job, Model, Lot...",
+    "รอตรวจสอบ": "Pending",
+    "ดำเนินการแล้ว": "Processed",
+    "ไม่มีรายการในหมวดหมู่นี้": "No items found",
+    "รอตรวจ": "Pending",
+    "ผ่าน": "Pass",
+    "งานเสีย": "Defect",
+    "ปฏิเสธ": "Reject",
+    "เหตุผล:": "Reason:",
+    "ย้อนกลับ": "Back",
+    "ข้อมูลที่สกัดได้จากฉลาก": "Extracted Data",
+    "จำนวน:": "Quantity:",
+    "ส่งเรื่อง (OP):": "Submitted by (OP):",
+    "ตรวจสอบ (QC):": "Checked by (QC):",
+    "จำนวนที่เสีย:": "Defect Qty:",
+    "ดวง": "pcs",
+    "สาเหตุที่ปริ้นเสีย:": "Defect Reason:",
+    "สาเหตุที่ปฏิเสธ:": "Reject Reason:",
+    "อนุมัติ (PASS)": "Approve (PASS)",
+    "ปฏิเสธ (NG)": "Reject (NG)",
+    "สำรองข้อมูล (Backup)": "Backup Data",
+    "ดาวน์โหลดประวัติการตรวจสอบล่าสุดออกมาเป็นไฟล์ Excel (CSV)": "Download recent inspection history as Excel (CSV)",
+    "ดาวน์โหลดข้อมูลตั๋ว (CSV)": "Download Tickets (CSV)",
+    "เพิ่มผู้ใช้": "Add User",
+    "ชื่อ-สกุล": "Full Name",
+    "เช่น สมชาย ใจดี": "e.g. John Doe",
+    "ใช้สำหรับล็อกอิน (ห้ามซ้ำ)": "Used for login (Must be unique)",
+    "กำหนดรหัสผ่าน": "Set password",
+    "สิทธิ์การใช้งาน (Role)": "User Role",
+    "ฝ่ายผลิต (Operator - ถ่ายรูปฉลาก)": "Operator - Scan Label",
+    "หน่วยตรวจสอบ (QC - ตรวจผ่าน/ไม่ผ่าน)": "QC - Approve/Reject",
+    "หัวหน้างาน (Supervisor - ตรวจผ่าน/ไม่ผ่าน)": "Supervisor - Approve/Reject",
+    "ผู้ดูแลระบบ (Admin - เข้าถึงได้ทุกฟังก์ชัน)": "Admin - Full Access",
+    "กะการทำงาน (Shift)": "Work Shift",
+    "กะ A": "Shift A",
+    "กะ B": "Shift B",
+    "ยืนยันการลบผู้ใช้?": "Confirm Delete User?",
+    "คุณกำลังจะลบบัญชี": "You are about to delete account",
+    "การกระทำนี้ไม่สามารถกู้คืนได้": "This action cannot be undone",
+    "ลบถาวร": "Delete Permanently",
+    "ไม่มีข้อมูลผู้ใช้งาน": "No user data",
+    "ขยาย": "Expand",
+    "กำลังตรวจสอบเครื่องปริ้น...": "Checking printer...",
+    "ไม่พบคิวการปริ้น (กรุณาสั่งปริ้นก่อนเข้าแอป)": "No print queue found (Please print first)",
+    "-- เลือกเลข Batch ที่เพิ่งปริ้น --": "-- Select printed Batch No --",
+    "-- เลือก Job Order --": "-- Select Job Order --",
+    "⚠️ ฉุกเฉิน: ไม่พบเลขในระบบ (กรอกเอง)": "⚠️ Emergency: Manual Batch No",
+    "รหัสอ้างอิงสร้างอัตโนมัติเนื่องจาก Network ปลายทางขาดการเชื่อมต่อ": "Auto-generated ID due to network disconnection",
+    "พิมพ์เลข Batch / อ้างอิงฉุกเฉิน...": "Enter Batch No / Emergency Reference...",
+    "❌ ไม่พบ Job Order": "❌ Job Order Not Found",
+    "⏳ กำลังโหลดแผนจาก API...": "⏳ Loading Plan from API...",
+    "ระบบป้องกันความผิดพลาด: คุณต้องสั่งปริ้นจากเครื่องคอมพิวเตอร์ก่อน จึงจะสามารถเปิดกล้องสแกนได้": "Poka-Yoke: You must print from the computer first before you can open the scanner.",
+    "ไม่มีรายการในระบบ": "No items in system",
+    "AI กำลังอ่านข้อความ...": "AI is extracting text...",
+    "ระบบกำลังสกัดข้อมูลจากรูปภาพ<br>และคำนวณตรวจสอบความถูกต้อง": "Extracting data from image<br>and calculating accuracy...",
+    "กำลังอัปโหลดข้อมูลสู่ Cloud...": "Uploading data to Cloud..."
+};
+
+function t(text) {
+    if (currentLang === 'EN' && EN_DICT[text]) return EN_DICT[text];
+    return text;
+}
+
+window.toggleLang = function() {
+    currentLang = currentLang === 'TH' ? 'EN' : 'TH';
+    localStorage.setItem('qc_lang', currentLang);
+    render(); 
+};
 
 // ==========================================
 // NOTIFICATIONS & PWA BADGE LOGIC
@@ -21,33 +147,22 @@ function updateBadgeAndNotify(tickets) {
     
     let pendingTickets = tickets.filter(t => t.status === 'pending');
     
-    // 🛡️ ซ่อนรายการทดสอบสำหรับคนที่ไม่ใช่ Admin
-    if (currentUser.role !== 'admin') {
-        pendingTickets = pendingTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
-    }
-    
-    if (currentUser.role === 'operator') {
-        pendingTickets = pendingTickets.filter(t => t.operator === currentUser.name);
-    }
+    if (currentUser.role !== 'admin') pendingTickets = pendingTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
+    if (currentUser.role === 'operator') pendingTickets = pendingTickets.filter(t => t.operator === currentUser.name);
 
     const pendingCount = pendingTickets.length;
+    const badgeHtml = `<span class="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-sm">${pendingCount}</span>`;
     
-    // 🟢 [อัปเดตแบบไม่กระพริบ] เปลี่ยนเฉพาะตัวเลขในเมนูด้านล่าง
+    // อัปเดตตัวเลขแจ้งเตือนสำหรับ Mobile Bottom Nav และ PC Sidebar
     const navBadgeContainer = document.getElementById('nav-inbox-badge-container');
-    if (navBadgeContainer) {
-        if (pendingCount > 0) {
-            navBadgeContainer.innerHTML = `<span class="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-sm">${pendingCount}</span>`;
-        } else {
-            navBadgeContainer.innerHTML = '';
-        }
-    }
+    const sidebarBadgeContainer = document.getElementById('sidebar-inbox-badge-container');
+    
+    if (navBadgeContainer) navBadgeContainer.innerHTML = pendingCount > 0 ? badgeHtml : '';
+    if (sidebarBadgeContainer) sidebarBadgeContainer.innerHTML = pendingCount > 0 ? badgeHtml : '';
     
     if ('setAppBadge' in navigator) {
-        if (pendingCount > 0) {
-            navigator.setAppBadge(pendingCount).catch(e => console.log(e));
-        } else {
-            navigator.clearAppBadge().catch(e => console.log(e));
-        }
+        if (pendingCount > 0) navigator.setAppBadge(pendingCount).catch(e => console.log(e));
+        else navigator.clearAppBadge().catch(e => console.log(e));
     }
 
     const storedCount = parseInt(localStorage.getItem('qc_pending_count') || '0');
@@ -65,9 +180,7 @@ function updateBadgeAndNotify(tickets) {
 
 function startAutoFetch() {
     if (autoFetchInterval) clearInterval(autoFetchInterval);
-    autoFetchInterval = setInterval(() => { 
-        if (currentUser) fetchPeriodicData(false); 
-    }, 30000); 
+    autoFetchInterval = setInterval(() => { if (currentUser) fetchPeriodicData(false); }, 30000); 
 }
 
 function stopAutoFetch() { 
@@ -88,7 +201,7 @@ function showCustomAlert(message, isSuccess = false) {
             <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full text-center">
                 ${icon}
                 <p class="text-gray-800 mb-6 font-medium">${message}</p>
-                <button onclick="document.getElementById('${id}').remove()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold w-full">ตกลง</button>
+                <button onclick="document.getElementById('${id}').remove()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold w-full">${t("ตกลง") || "OK"}</button>
             </div>
         </div>
     `;
@@ -100,12 +213,12 @@ function showRejectPrompt() {
         <div id="reject-modal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 fade-in">
             <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
                 <h3 class="font-bold text-red-600 mb-2">
-                    <i class="fa-solid fa-triangle-exclamation"></i> ระบุสาเหตุที่ปฏิเสธ (NG)
+                    <i class="fa-solid fa-triangle-exclamation"></i> ${t("ระบุสาเหตุที่ปฏิเสธ (NG)") || t("สาเหตุที่ปฏิเสธ:")}
                 </h3>
-                <input type="text" id="reject-reason" class="w-full border-2 p-3 rounded-lg mb-4 outline-none focus:border-red-500" placeholder="เช่น รูปไม่ชัด, Lot ผิด...">
+                <input type="text" id="reject-reason" class="w-full border-2 p-3 rounded-lg mb-4 outline-none focus:border-red-500" placeholder="${t("เช่น รูปไม่ชัด, Lot ผิด...")}">
                 <div class="flex gap-2">
-                    <button onclick="document.getElementById('reject-modal').remove()" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold">ยกเลิก</button>
-                    <button onclick="confirmReject()" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold">ยืนยันปฏิเสธ</button>
+                    <button onclick="document.getElementById('reject-modal').remove()" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold">${t("ยกเลิก")}</button>
+                    <button onclick="confirmReject()" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold">${t("ยืนยัน")}</button>
                 </div>
             </div>
         </div>
@@ -116,7 +229,7 @@ function showRejectPrompt() {
 
 function confirmReject() {
     const reason = document.getElementById('reject-reason').value.trim();
-    if (!reason) return showCustomAlert("กรุณาระบุสาเหตุที่ปฏิเสธ");
+    if (!reason) return showCustomAlert(currentLang === 'EN' ? "Please specify reason" : "กรุณาระบุสาเหตุที่ปฏิเสธ");
     
     document.getElementById('reject-modal').remove();
     executeProcessTicket('rejected', reason);
@@ -127,22 +240,22 @@ function showChangePasswordModal() {
         <div id="change-password-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4 fade-in">
             <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
                 <h3 class="font-bold text-blue-600 mb-4 text-xl border-b pb-2">
-                    <i class="fa-solid fa-key mr-2"></i>เปลี่ยนรหัสผ่าน
+                    <i class="fa-solid fa-key mr-2"></i>${t("เปลี่ยนรหัสผ่าน")}
                 </h3>
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">รหัสผ่านใหม่ <span class="text-red-500">*</span></label>
-                        <input type="password" id="new-password" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="อย่างน้อย 4 ตัวอักษร">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">${t("รหัสผ่านใหม่")} <span class="text-red-500">*</span></label>
+                        <input type="password" id="new-password" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="${t("อย่างน้อย 4 ตัวอักษร")}">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">ยืนยันรหัสผ่านใหม่ <span class="text-red-500">*</span></label>
-                        <input type="password" id="confirm-new-password" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="กรอกรหัสผ่านใหม่อีกครั้ง">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">${t("ยืนยันรหัสผ่านใหม่")} <span class="text-red-500">*</span></label>
+                        <input type="password" id="confirm-new-password" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="${t("กรอกรหัสผ่านใหม่อีกครั้ง")}">
                     </div>
                 </div>
                 <div class="flex gap-3 mt-6">
-                    <button onclick="document.getElementById('change-password-modal').remove()" class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold transition">ยกเลิก</button>
+                    <button onclick="document.getElementById('change-password-modal').remove()" class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold transition">${t("ยกเลิก")}</button>
                     <button onclick="executeChangePassword()" id="btn-change-password" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition shadow-md flex justify-center items-center gap-2">
-                        <i class="fa-solid fa-save"></i> บันทึก
+                        <i class="fa-solid fa-save"></i> ${t("บันทึก")}
                     </button>
                 </div>
             </div>
@@ -155,9 +268,9 @@ function executeChangePassword() {
     const newPass = document.getElementById('new-password').value.trim();
     const confirmPass = document.getElementById('confirm-new-password').value.trim();
     
-    if (!newPass || !confirmPass) return showCustomAlert("กรุณากรอกรหัสผ่านให้ครบถ้วน");
-    if (newPass !== confirmPass) return showCustomAlert("รหัสผ่านใหม่ไม่ตรงกัน");
-    if (newPass.length < 4) return showCustomAlert("รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร");
+    if (!newPass || !confirmPass) return showCustomAlert(currentLang === 'EN' ? "Please fill all password fields" : "กรุณากรอกรหัสผ่านให้ครบถ้วน");
+    if (newPass !== confirmPass) return showCustomAlert(currentLang === 'EN' ? "Passwords do not match" : "รหัสผ่านใหม่ไม่ตรงกัน");
+    if (newPass.length < 4) return showCustomAlert(currentLang === 'EN' ? "Password too short" : "รหัสผ่านต้องมีอย่างน้อย 4 ตัวอักษร");
     
     const btn = document.getElementById('btn-change-password'); 
     btn.innerHTML = `<div class="loader loader-white"></div>`; 
@@ -171,26 +284,24 @@ function executeChangePassword() {
     .then(res => { 
         if (res.success) { 
             document.getElementById('change-password-modal').remove(); 
-            showCustomAlert(`เปลี่ยนรหัสผ่านสำเร็จ`, true); 
-        } else {
-            throw new Error(res.error); 
-        }
+            showCustomAlert(currentLang === 'EN' ? "Password changed successfully" : "เปลี่ยนรหัสผ่านสำเร็จ", true); 
+        } else throw new Error(res.error); 
     })
     .catch(err => { 
         showCustomAlert(err.message); 
-        btn.innerHTML = `<i class="fa-solid fa-save"></i> บันทึก`; 
+        btn.innerHTML = `<i class="fa-solid fa-save"></i> ${t("บันทึก")}`; 
         btn.disabled = false; 
     });
 }
 
 function exportTicketsToCSV() {
-    if (!dbTickets || dbTickets.length === 0) return showCustomAlert("ไม่มีข้อมูลสำหรับดาวน์โหลด");
+    if (!dbTickets || dbTickets.length === 0) return showCustomAlert(t("ไม่มีข้อมูลสำหรับดาวน์โหลด"));
     
     let csvContent = "\uFEFF"; 
     const headers = [
-        "Ticket ID", "Job Order", "Model", "Lot No", "วันที่ผลิต", 
-        "จำนวน (Qty)", "ผู้สแกน (OP)", "สถานะ", "ผู้ตรวจ (QC)", 
-        "เวลาแจ้งเรื่อง", "เวลาอนุมัติ", "เหตุผล", "ลิงก์รูปภาพ"
+        "Ticket ID", "Job Order", "Model", "Lot No", t("วันที่ผลิต"), 
+        t("จำนวน (Qty)"), t("ผู้สแกน (OP)"), t("สถานะ"), t("ผู้ตรวจ (QC)"), 
+        t("เวลาแจ้งเรื่อง"), t("เวลาอนุมัติ"), t("เหตุผล"), t("ลิงก์รูปภาพ")
     ];
     csvContent += headers.join(",") + "\n";
     
@@ -211,10 +322,7 @@ function exportTicketsToCSV() {
     const link = document.createElement("a"); 
     link.setAttribute("href", url); 
     link.setAttribute("download", `QC_Backup_${getTodayDateString()}.csv`);
-    
-    document.body.appendChild(link); 
-    link.click(); 
-    document.body.removeChild(link);
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
 }
 
 function showImageModal(imageUrl) {
@@ -235,32 +343,24 @@ function showImageModal(imageUrl) {
 function getDriveImageUrl(url, size = 'w800') {
     if (!url) return 'https://via.placeholder.com/150';
     const match = url.match(/id=([a-zA-Z0-9_-]+)/) || url.match(/d\/([a-zA-Z0-9_-]+)/);
-    if (match && match[1]) {
-        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=${size}`;
-    }
+    if (match && match[1]) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=${size}`;
     return url;
 }
 
 function formatDisplayDate(dateStr) { 
-    if (!dateStr) return ''; 
-    return String(dateStr).replace('T', ' ').replace('.000Z', ''); 
+    if (!dateStr) return ''; return String(dateStr).replace('T', ' ').replace('.000Z', ''); 
 }
 
 function getTodayDateString() { 
-    const today = new Date(); 
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`; 
+    const today = new Date(); return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`; 
 }
 
 function parseTicketDate(timestampStr) {
     if (!timestampStr) return null;
     if (timestampStr.includes('/')) { 
         const parts = timestampStr.split(' ')[0].split('/'); 
-        if (parts.length === 3) {
-            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`; 
-        }
-    } else if (timestampStr.includes('-')) {
-        return timestampStr.split('T')[0];
-    }
+        if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`; 
+    } else if (timestampStr.includes('-')) return timestampStr.split('T')[0];
     return null;
 }
 
@@ -268,17 +368,13 @@ function parseTicketDate(timestampStr) {
 // INITIALIZATION & LOGIN
 // ==========================================
 function render() { 
-    // 🟢 เช็คสถานะโหมดปิดปรับปรุง
     if (typeof IS_MAINTENANCE_MODE !== 'undefined' && IS_MAINTENANCE_MODE) {
-        renderMaintenance();
-        return;
+        renderMaintenance(); return;
     }
-
     if (!currentUser) renderLogin(); 
     else renderMainApp(); 
 }
 
-// 🟢 หน้าจอโหมดปิดปรับปรุงระบบ
 function renderMaintenance() {
     const appDiv = document.getElementById('app');
     if (appDiv) {
@@ -287,8 +383,8 @@ function renderMaintenance() {
                 <div class="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
                     <i class="fa-solid fa-person-digging text-5xl text-orange-500"></i>
                 </div>
-                <h1 class="text-2xl font-bold text-gray-800 mb-2">ระบบกำลังปิดปรับปรุง</h1>
-                <p class="text-gray-600 mb-8 text-sm">${MAINTENANCE_MESSAGE}</p>
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">${t("ระบบกำลังปิดปรับปรุง")}</h1>
+                <p class="text-gray-600 mb-8 text-sm">${t("กำลังดำเนินการอัปเกรดและเพิ่มฟีเจอร์ใหม่<br>กรุณากลับมาใช้งานอีกครั้งในภายหลังครับ")}</p>
                 <div class="loader loader-blue"></div>
                 <p class="text-xs text-gray-400 mt-8">Smart Label QC System</p>
             </div>
@@ -299,24 +395,27 @@ function renderMaintenance() {
 function renderLogin() {
     const appDiv = document.getElementById('app');
     appDiv.innerHTML = `
-        <div class="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-900 p-4 fade-in">
-            <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center">
-                <div class="mb-6">
+        <div class="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-900 p-4 fade-in h-full">
+            <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md text-center relative">
+                <button onclick="toggleLang()" class="absolute top-4 right-4 text-xs font-bold text-gray-400 hover:text-blue-600 bg-gray-100 px-2 py-1 rounded transition">
+                    <i class="fa-solid fa-language"></i> ${currentLang === 'TH' ? 'EN' : 'TH'}
+                </button>
+                <div class="mb-6 mt-4">
                     <i class="fa-solid fa-shield-check text-5xl text-blue-600 mb-2"></i>
-                    <h1 class="text-2xl font-bold text-gray-800">Label QC System</h1>
-                    <p class="text-sm text-gray-500 mt-1">กรุณาลงชื่อเข้าสู่ระบบ</p>
+                    <h1 class="text-2xl font-bold text-gray-800">${t("Label QC System")}</h1>
+                    <p class="text-sm text-gray-500 mt-1">${t("กรุณาลงชื่อเข้าสู่ระบบ")}</p>
                 </div>
                 <div class="space-y-4 text-left">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fa-solid fa-user text-gray-400"></i> Username</label>
-                        <input type="text" id="login-username" class="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="ระบุชื่อผู้ใช้งาน">
+                        <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fa-solid fa-user text-gray-400"></i> ${t("Username")}</label>
+                        <input type="text" id="login-username" class="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="${t("ระบุชื่อผู้ใช้งาน")}">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fa-solid fa-lock text-gray-400"></i> Password</label>
-                        <input type="password" id="login-password" class="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="ระบุรหัสผ่าน">
+                        <label class="block text-sm font-bold text-gray-700 mb-1"><i class="fa-solid fa-lock text-gray-400"></i> ${t("Password")}</label>
+                        <input type="password" id="login-password" class="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="${t("ระบุรหัสผ่าน")}">
                     </div>
                     <button onclick="handleLogin()" id="login-btn" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 flex justify-center items-center gap-2">
-                        <span>เข้าสู่ระบบ</span>
+                        <span>${t("เข้าสู่ระบบ")}</span>
                     </button>
                 </div>
             </div>
@@ -334,43 +433,33 @@ function handleLogin() {
     const user = document.getElementById('login-username').value.trim(); 
     const pass = document.getElementById('login-password').value.trim();
     
-    if (!user || !pass) return showCustomAlert("กรุณากรอก Username และ Password ให้ครบถ้วน");
+    if (!user || !pass) return showCustomAlert(currentLang === 'EN' ? "Please enter both Username and Password" : "กรุณากรอก Username และ Password ให้ครบถ้วน");
     
     const btn = document.getElementById('login-btn'); 
-    btn.innerHTML = `<div class="loader loader-white"></div> <span>กำลังตรวจสอบ...</span>`; 
+    btn.innerHTML = `<div class="loader loader-white"></div> <span>${t("กำลังตรวจสอบ...")}</span>`; 
     btn.disabled = true;
     
     requestNotificationPermission();
     
     fetch(API_URL, { 
-        method: 'POST', 
-        body: JSON.stringify({ action: "login", username: user, password: pass }) 
+        method: 'POST', body: JSON.stringify({ action: "login", username: user, password: pass }) 
     })
     .then(res => res.json())
     .then(res => {
         if (res.success) { 
-            currentUser = res.data; 
-            currentUser.username = user; 
+            currentUser = res.data; currentUser.username = user; 
             localStorage.setItem('qc_app_user', JSON.stringify(currentUser)); 
-            
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox'; 
-            currentSelectedJob = null; 
-            currentSelectedBatch = null; 
-            isDefectMode = false; 
-            
-            fetchInitialData(); 
-            startAutoFetch(); 
-            render(); 
+            currentSelectedJob = null; currentSelectedBatch = null; isDefectMode = false; 
+            fetchInitialData(); startAutoFetch(); render(); 
         } else { 
-            showCustomAlert(res.error || "ล็อกอินไม่สำเร็จ"); 
-            btn.innerHTML = `<span>เข้าสู่ระบบ</span>`; 
-            btn.disabled = false; 
+            showCustomAlert(res.error || "Login Failed"); 
+            btn.innerHTML = `<span>${t("เข้าสู่ระบบ")}</span>`; btn.disabled = false; 
         }
     })
     .catch(err => { 
-        showCustomAlert("เกิดข้อผิดพลาด: " + err.message); 
-        btn.innerHTML = `<span>เข้าสู่ระบบ</span>`; 
-        btn.disabled = false; 
+        showCustomAlert("Error: " + err.message); 
+        btn.innerHTML = `<span>${t("เข้าสู่ระบบ")}</span>`; btn.disabled = false; 
     });
 }
 
@@ -379,11 +468,11 @@ function logout() {
         <div id="logout-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4 fade-in">
             <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full text-center">
                 <i class="fa-solid fa-arrow-right-from-bracket text-red-500 text-5xl mb-4"></i>
-                <h3 class="font-bold text-gray-800 text-lg mb-2">ออกจากระบบ</h3>
-                <p class="text-sm text-gray-600 mb-6">คุณต้องการออกจากระบบใช่หรือไม่?</p>
+                <h3 class="font-bold text-gray-800 text-lg mb-2">${t("ออกจากระบบ")}</h3>
+                <p class="text-sm text-gray-600 mb-6">${t("คุณต้องการออกจากระบบใช่หรือไม่?")}</p>
                 <div class="flex gap-3">
-                    <button onclick="document.getElementById('logout-modal').remove()" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition">ยกเลิก</button>
-                    <button onclick="executeLogout()" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition flex justify-center items-center">ยืนยัน</button>
+                    <button onclick="document.getElementById('logout-modal').remove()" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition">${t("ยกเลิก")}</button>
+                    <button onclick="executeLogout()" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition flex justify-center items-center">${t("ยืนยัน")}</button>
                 </div>
             </div>
         </div>
@@ -392,15 +481,9 @@ function logout() {
 }
 
 function executeLogout() {
-    const modal = document.getElementById('logout-modal'); 
-    if (modal) modal.remove();
-    
-    currentUser = null; 
-    localStorage.removeItem('qc_app_user');
-    
-    if (typeof stopCamera === 'function') stopCamera(); 
-    stopAutoFetch(); 
-    render(); 
+    const modal = document.getElementById('logout-modal'); if (modal) modal.remove();
+    currentUser = null; localStorage.removeItem('qc_app_user');
+    if (typeof stopCamera === 'function') stopCamera(); stopAutoFetch(); render(); 
 }
 
 // ==========================================
@@ -409,14 +492,9 @@ function executeLogout() {
 function handleRefresh(event) {
     if (event && event.currentTarget) { 
         const icon = event.currentTarget.querySelector('i'); 
-        if (icon) { 
-            icon.classList.add('fa-spin'); 
-            setTimeout(() => { icon.classList.remove('fa-spin'); }, 1000); 
-        } 
+        if (icon) { icon.classList.add('fa-spin'); setTimeout(() => { icon.classList.remove('fa-spin'); }, 1000); } 
     }
-    
-    if (currentTab === 'admin') fetchUsersList(); 
-    else fetchPeriodicData(true); // บังคับให้โหลดและวาดหน้าจอใหม่ทันทีเมื่อกดปุ่ม
+    if (currentTab === 'admin') fetchUsersList(); else fetchPeriodicData(true); 
 }
 
 function fetchInitialData() {
@@ -425,54 +503,39 @@ function fetchInitialData() {
         fetch(`${API_URL}?action=getJobs`).then(res => res.json()).catch(() => []),
         fetch(`${API_URL}?action=getBatches`).then(res => res.json()).catch(() => [])
     ]).then(([jobsData, batchesData]) => {
-        dbJobs = jobsData || []; 
-        dbBatches = batchesData || []; 
-        isLoadingJobs = false;
-        
-        if (currentTab === 'scan' && !currentSelectedJob && !isDefectMode) {
-            renderMainApp();
-        }
+        dbJobs = jobsData || []; dbBatches = batchesData || []; isLoadingJobs = false;
+        if (currentTab === 'scan' && !currentSelectedJob && !isDefectMode) renderMainApp();
     });
     fetchTickets();
 }
 
 function fetchTickets() {
-    fetch(`${API_URL}?action=getTickets`)
-        .then(res => res.json())
-        .then(data => {
-            dbTickets = data || []; 
-            updateBadgeAndNotify(dbTickets); 
-            if(currentTab === 'inbox') renderMainApp();
-        })
-        .catch(err => console.error("โหลดข้อมูล Inbox ผิดพลาด: ", err));
+    fetch(`${API_URL}?action=getTickets`).then(res => res.json()).then(data => {
+        dbTickets = data || []; updateBadgeAndNotify(dbTickets); 
+        if(currentTab === 'inbox') renderMainApp();
+    }).catch(err => console.error("Error fetching inbox: ", err));
 }
 
-// 🟢 [อัปเดตแบบไม่กระพริบ] ฟังก์ชันนี้จะอัปเดตเฉพาะข้อมูลภายใน (DOM) ไม่สั่ง Re-render ทั้งหน้า 
 function fetchPeriodicData(forceRender = false) {
     Promise.all([
         fetch(`${API_URL}?action=getTickets`).then(res => res.json()).catch(() => null),
         fetch(`${API_URL}?action=getBatches`).then(res => res.json()).catch(() => null)
     ]).then(([ticketsData, batchesData]) => {
-        let ticketsChanged = false;
-        let batchesChanged = false;
-        
+        let ticketsChanged = false; let batchesChanged = false;
         if (ticketsData) {
             ticketsChanged = JSON.stringify(dbTickets) !== JSON.stringify(ticketsData);
-            dbTickets = ticketsData; 
-            updateBadgeAndNotify(dbTickets); // จะไปแก้ตัวเลขบนไอคอนจดหมายให้เอง
+            dbTickets = ticketsData; updateBadgeAndNotify(dbTickets);
         }
-        
         if (batchesData) {
             const newBatches = batchesData || [];
             batchesChanged = JSON.stringify(dbBatches) !== JSON.stringify(newBatches);
-            
             if (currentUser && (currentUser.role === 'qc' || currentUser.role === 'supervisor' || currentUser.role === 'admin')) {
                 const storedBatchCount = parseInt(localStorage.getItem('qc_batch_count') || '0');
                 if (newBatches.length > storedBatchCount && autoFetchInterval !== null) {
                     const newPrints = newBatches.length - storedBatchCount;
                     if ('Notification' in window && Notification.permission === 'granted') {
-                        new Notification('🖨️ สัญญาณแจ้งเตือนการปริ้น!', { 
-                            body: `ฝ่ายผลิตสั่งปริ้นฉลากใหม่จำนวน ${newPrints} รายการ`, 
+                        new Notification(currentLang === 'EN' ? '🖨️ New Print Alert!' : '🖨️ สัญญาณแจ้งเตือนการปริ้น!', { 
+                            body: currentLang === 'EN' ? `${newPrints} new labels printed` : `ฝ่ายผลิตสั่งปริ้นฉลากใหม่จำนวน ${newPrints} รายการ`, 
                             icon: 'https://cdn-icons-png.flaticon.com/512/732/732220.png' 
                         });
                     }
@@ -482,110 +545,133 @@ function fetchPeriodicData(forceRender = false) {
             dbBatches = newBatches;
         }
         
-        if (forceRender) {
-            renderMainApp();
-        } else {
-            // อัปเดตรายการที่เฉพาะเจาะจง (หลีกเลี่ยงการวาดหน้าจอใหม่)
-            if (ticketsChanged && currentTab === 'inbox') {
-                updateInboxListUI(); 
-            }
-            if (batchesChanged && currentTab === 'scan' && !currentSelectedJob && !isDefectMode) {
-                updateBatchDropdownUI();
-            }
+        if (forceRender) renderMainApp();
+        else {
+            if (ticketsChanged && currentTab === 'inbox') updateInboxListUI(); 
+            if (batchesChanged && currentTab === 'scan' && !currentSelectedJob && !isDefectMode) updateBatchDropdownUI();
         }
-    }).catch(err => console.error("โหลดข้อมูล Periodic ผิดพลาด: ", err));
+    }).catch(err => console.error("Error fetching periodic data: ", err));
 }
 
 let adminUsersList = [];
-
 function fetchUsersList() {
     const contentDiv = document.getElementById('main-content'); 
-    if(contentDiv) {
-        contentDiv.innerHTML = `<div class="flex justify-center items-center h-full"><div class="loader loader-blue loader-large"></div></div>`;
-    }
-    fetch(`${API_URL}?action=getUsers`)
-        .then(res => res.json())
-        .then(data => { 
-            adminUsersList = data || []; 
-            renderMainApp(); 
-        })
-        .catch(err => { 
-            showCustomAlert(err.message); 
-            renderMainApp(); 
-        });
+    if(contentDiv) contentDiv.innerHTML = `<div class="flex justify-center items-center h-full"><div class="loader loader-blue loader-large"></div></div>`;
+    fetch(`${API_URL}?action=getUsers`).then(res => res.json()).then(data => { adminUsersList = data || []; renderMainApp(); }).catch(err => { showCustomAlert(err.message); renderMainApp(); });
 }
 
 // ==========================================
 // APP ROUTING & UI RENDERING
 // ==========================================
 function switchTab(tab) {
-    if (tab === 'scan' && currentUser.role !== 'operator' && currentUser.role !== 'admin') {
-        return showCustomAlert("คุณไม่มีสิทธิ์เข้าถึงหน้านี้", false);
-    }
-    if (tab === 'admin' && currentUser.role !== 'admin') {
-        return showCustomAlert("คุณไม่มีสิทธิ์เข้าถึงหน้านี้", false);
-    }
-    
-    currentTab = tab; 
-    selectedTicket = null;
-    
+    if (tab === 'scan' && currentUser.role !== 'operator' && currentUser.role !== 'admin') return showCustomAlert(t("คุณไม่มีสิทธิ์เข้าถึงหน้านี้"), false);
+    if (tab === 'admin' && currentUser.role !== 'admin') return showCustomAlert(t("คุณไม่มีสิทธิ์เข้าถึงหน้านี้"), false);
+    currentTab = tab; selectedTicket = null;
     if (tab !== 'scan') stopCamera();
-    
-    if (tab === 'admin') fetchUsersList(); 
-    else renderMainApp();
+    if (tab === 'admin') fetchUsersList(); else renderMainApp();
 }
 
 function renderMainApp() {
     const appDiv = document.getElementById('app');
     
+    // 🟢 โครงสร้างแบบ Responsive: มือถือโชว์แถบล่าง / PC โชว์ Sidebar ซ้ายมือ
     const isFullscreenCamera = currentTab === 'scan' && (currentSelectedJob || isDefectMode) && !capturedImageBase64 && !isProcessingOCR;
 
     if (isFullscreenCamera) {
-        appDiv.innerHTML = `<main class="flex-1 overflow-hidden bg-black relative" id="main-content"></main>`;
+        appDiv.innerHTML = `<main class="flex-1 overflow-hidden bg-black relative w-full h-full" id="main-content"></main>`;
     } else {
         appDiv.innerHTML = `
-            <header class="bg-white shadow-sm z-10 px-4 py-3 flex justify-between items-center">
-                <div class="flex items-center">
-                    <i class="fa-solid fa-shield-check text-blue-600 text-xl mr-2"></i>
-                    <span class="font-bold text-lg hidden sm:inline">Label QC</span>
-                </div>
-                <div class="flex items-center space-x-3 sm:space-x-4">
-                    <button onclick="handleRefresh(event)" class="text-blue-500 hover:text-blue-700 transition" title="รีเฟรชข้อมูล"><i class="fa-solid fa-rotate"></i></button>
-                    <button onclick="showChangePasswordModal()" class="text-gray-400 hover:text-blue-600 transition" title="เปลี่ยนรหัสผ่าน"><i class="fa-solid fa-key"></i></button>
-                    <div class="text-right ml-1 border-l pl-3 border-gray-200">
-                        <div class="font-semibold text-sm text-blue-800">${currentUser.name}</div>
-                        <div class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">${currentUser.role}</div>
+            <div class="flex flex-col md:flex-row h-full w-full bg-gray-100 overflow-hidden">
+                
+                <!-- 🖥️ Sidebar for PC Laptop -->
+                <aside class="hidden md:flex flex-col w-64 bg-white shadow-xl z-30">
+                    <div class="p-6 border-b flex items-center gap-3">
+                        <i class="fa-solid fa-shield-check text-blue-600 text-3xl"></i>
+                        <span class="font-bold text-xl">${t("Label QC System")}</span>
                     </div>
-                    <button onclick="logout()" class="text-gray-400 hover:text-red-500 transition ml-2"><i class="fa-solid fa-sign-out-alt text-xl"></i></button>
-                </div>
-            </header>
-            <main class="flex-1 overflow-y-auto bg-gray-100 relative" id="main-content"></main>
-            <nav class="bg-white border-t flex justify-around p-2 pb-safe z-20">
-                ${(currentUser.role === 'operator' || currentUser.role === 'admin') ? `
-                    <button onclick="switchTab('scan')" class="flex flex-col items-center p-2 w-full ${currentTab === 'scan' ? 'text-blue-600' : 'text-gray-400'}">
-                        <i class="fa-solid fa-camera text-xl mb-1"></i>
-                        <span class="text-[10px] font-medium mt-1">สแกน Label</span>
-                    </button>
-                ` : ''}
-                <button onclick="switchTab('inbox')" class="flex flex-col items-center p-2 w-full relative ${currentTab === 'inbox' ? 'text-blue-600' : 'text-gray-400'}">
-                    <div class="relative">
-                        <i class="fa-solid fa-inbox text-xl mb-1"></i>
-                        <div id="nav-inbox-badge-container">
-                            <!-- Badge จะถูกใส่ที่นี่อัตโนมัติผ่าน updateBadgeAndNotify() -->
+                    <div class="p-4">
+                        <div class="bg-blue-50 p-3 rounded-lg mb-6 border border-blue-100">
+                            <div class="font-bold text-blue-800">${currentUser.name}</div>
+                            <div class="text-[10px] text-blue-600 uppercase font-bold tracking-wider mt-1">${currentUser.role}</div>
                         </div>
+                        <nav class="space-y-2">
+                            ${(currentUser.role === 'operator' || currentUser.role === 'admin') ? `
+                            <button onclick="switchTab('scan')" class="w-full flex items-center gap-3 p-3 rounded-lg font-bold transition ${currentTab === 'scan' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}">
+                                <i class="fa-solid fa-camera w-5 text-center text-lg"></i> ${t("สแกน Label")}
+                            </button>` : ''}
+                            <button onclick="switchTab('inbox')" class="w-full flex items-center gap-3 p-3 rounded-lg font-bold transition relative ${currentTab === 'inbox' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}">
+                                <i class="fa-solid fa-inbox w-5 text-center text-lg"></i> ${t("กล่องข้อความ")}
+                                <div id="sidebar-inbox-badge-container" class="absolute right-3"></div>
+                            </button>
+                            ${currentUser.role === 'admin' ? `
+                            <button onclick="switchTab('admin')" class="w-full flex items-center gap-3 p-3 rounded-lg font-bold transition ${currentTab === 'admin' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}">
+                                <i class="fa-solid fa-users-cog w-5 text-center text-lg"></i> ${t("จัดการผู้ใช้")}
+                            </button>` : ''}
+                        </nav>
                     </div>
-                    <span class="text-[10px] font-medium mt-1">กล่องข้อความ</span>
-                </button>
-                ${currentUser.role === 'admin' ? `
-                    <button onclick="switchTab('admin')" class="flex flex-col items-center p-2 w-full ${currentTab === 'admin' ? 'text-blue-600' : 'text-gray-400'}">
-                        <i class="fa-solid fa-users-cog text-xl mb-1"></i>
-                        <span class="text-[10px] font-medium mt-1">จัดการผู้ใช้</span>
-                    </button>
-                ` : ''}
-            </nav>
+                    <div class="mt-auto p-4 border-t space-y-2">
+                        <button onclick="toggleLang()" class="w-full flex items-center gap-3 p-3 rounded-lg font-bold text-gray-600 hover:bg-gray-100 transition">
+                            <i class="fa-solid fa-language w-5 text-center text-indigo-500 text-lg"></i> ${currentLang === 'TH' ? 'English' : 'ภาษาไทย'}
+                        </button>
+                        <button onclick="showChangePasswordModal()" class="w-full flex items-center gap-3 p-3 rounded-lg font-bold text-gray-600 hover:bg-gray-100 transition">
+                            <i class="fa-solid fa-key w-5 text-center text-yellow-500 text-lg"></i> ${t("เปลี่ยนรหัสผ่าน")}
+                        </button>
+                        <button onclick="logout()" class="w-full flex items-center gap-3 p-3 rounded-lg font-bold text-red-600 hover:bg-red-50 transition">
+                            <i class="fa-solid fa-sign-out-alt w-5 text-center text-lg"></i> ${t("ออกจากระบบ")}
+                        </button>
+                    </div>
+                </aside>
+
+                <!-- 📱 Main Content Area -->
+                <div class="flex-1 flex flex-col relative h-full overflow-hidden">
+                    
+                    <!-- Mobile Header (Hidden on PC) -->
+                    <header class="md:hidden bg-white shadow-sm z-20 px-4 py-3 flex justify-between items-center">
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-shield-check text-blue-600 text-xl mr-2"></i>
+                            <span class="font-bold text-lg hidden sm:inline">Label QC</span>
+                        </div>
+                        <div class="flex items-center space-x-3 sm:space-x-4">
+                            <button onclick="toggleLang()" class="text-indigo-500 font-bold px-2 py-1 rounded bg-indigo-50 text-xs">${currentLang}</button>
+                            <button onclick="handleRefresh(event)" class="text-blue-500 hover:text-blue-700 transition" title="${t('รีเฟรชข้อมูล')}"><i class="fa-solid fa-rotate"></i></button>
+                            <button onclick="showChangePasswordModal()" class="text-gray-400 hover:text-blue-600 transition" title="${t('เปลี่ยนรหัสผ่าน')}"><i class="fa-solid fa-key"></i></button>
+                            <div class="text-right ml-1 border-l pl-3 border-gray-200">
+                                <div class="font-semibold text-sm text-blue-800">${currentUser.name}</div>
+                                <div class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">${currentUser.role}</div>
+                            </div>
+                            <button onclick="logout()" class="text-gray-400 hover:text-red-500 transition ml-2"><i class="fa-solid fa-sign-out-alt text-xl"></i></button>
+                        </div>
+                    </header>
+
+                    <!-- Inner Scrollable Main -->
+                    <main class="flex-1 overflow-y-auto relative p-0 md:p-6" id="main-content"></main>
+
+                    <!-- Mobile Bottom Nav (Hidden on PC) -->
+                    <nav class="md:hidden bg-white border-t flex justify-around p-2 pb-safe z-20">
+                        ${(currentUser.role === 'operator' || currentUser.role === 'admin') ? `
+                            <button onclick="switchTab('scan')" class="flex flex-col items-center p-2 w-full ${currentTab === 'scan' ? 'text-blue-600' : 'text-gray-400'}">
+                                <i class="fa-solid fa-camera text-xl mb-1"></i>
+                                <span class="text-[10px] font-medium mt-1">${t("สแกน Label")}</span>
+                            </button>
+                        ` : ''}
+                        <button onclick="switchTab('inbox')" class="flex flex-col items-center p-2 w-full relative ${currentTab === 'inbox' ? 'text-blue-600' : 'text-gray-400'}">
+                            <div class="relative">
+                                <i class="fa-solid fa-inbox text-xl mb-1"></i>
+                                <div id="nav-inbox-badge-container"></div>
+                            </div>
+                            <span class="text-[10px] font-medium mt-1">${t("กล่องข้อความ")}</span>
+                        </button>
+                        ${currentUser.role === 'admin' ? `
+                            <button onclick="switchTab('admin')" class="flex flex-col items-center p-2 w-full ${currentTab === 'admin' ? 'text-blue-600' : 'text-gray-400'}">
+                                <i class="fa-solid fa-users-cog text-xl mb-1"></i>
+                                <span class="text-[10px] font-medium mt-1">${t("จัดการผู้ใช้")}</span>
+                            </button>
+                        ` : ''}
+                    </nav>
+                </div>
+            </div>
         `;
         
-        // สั่งอัปเดตตัวเลขแจ้งเตือนให้ตรงกับปัจจุบันทันทีที่วาดเมนูเสร็จ
         updateBadgeAndNotify(dbTickets);
     }
     renderContent();
@@ -604,33 +690,33 @@ function renderContent() {
 // ==========================================
 function renderAdminView(container) {
     let html = `
-        <div class="max-w-2xl mx-auto fade-in pb-20 p-4">
+        <div class="max-w-4xl mx-auto fade-in pb-20 p-4">
             <div class="bg-white rounded-xl shadow-sm p-4 mb-6 border-l-4 border-green-500">
                 <div class="flex justify-between items-center mb-2">
                     <h2 class="font-bold text-gray-700 text-base">
-                        <i class="fa-solid fa-database text-green-500 mr-2"></i> สำรองข้อมูล (Backup)
+                        <i class="fa-solid fa-database text-green-500 mr-2"></i> ${t("สำรองข้อมูล (Backup)")}
                     </h2>
                 </div>
-                <p class="text-xs text-gray-500 mb-3">ดาวน์โหลดประวัติการตรวจสอบล่าสุดออกมาเป็นไฟล์ Excel (CSV)</p>
-                <button onclick="exportTicketsToCSV()" class="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold shadow-sm transition flex justify-center items-center gap-2">
-                    <i class="fa-solid fa-file-excel"></i> ดาวน์โหลดข้อมูลตั๋ว (CSV)
+                <p class="text-xs text-gray-500 mb-3">${t("ดาวน์โหลดประวัติการตรวจสอบล่าสุดออกมาเป็นไฟล์ Excel (CSV)")}</p>
+                <button onclick="exportTicketsToCSV()" class="w-full md:w-auto px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold shadow-sm transition flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-file-excel"></i> ${t("ดาวน์โหลดข้อมูลตั๋ว (CSV)")}
                 </button>
             </div>
             
             <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
                 <h2 class="font-bold text-gray-700 text-lg">
-                    <i class="fa-solid fa-users-cog text-blue-500 mr-2"></i> จัดการผู้ใช้งาน
+                    <i class="fa-solid fa-users-cog text-blue-500 mr-2"></i> ${t("จัดการผู้ใช้")}
                 </h2>
                 <button onclick="showAddUserModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg shadow-sm font-bold flex items-center gap-2 transition">
-                    <i class="fa-solid fa-plus"></i> เพิ่มผู้ใช้
+                    <i class="fa-solid fa-plus"></i> ${t("เพิ่มผู้ใช้")}
                 </button>
             </div>
             
-            <div class="space-y-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
     `;
     
     if (adminUsersList.length === 0) {
-        html += `<div class="text-center text-gray-500 py-10 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">ไม่มีข้อมูลผู้ใช้งาน</div>`;
+        html += `<div class="col-span-full text-center text-gray-500 py-10 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">${t("ไม่มีข้อมูลผู้ใช้งาน")}</div>`;
     }
 
     adminUsersList.forEach(u => {
@@ -650,7 +736,7 @@ function renderAdminView(container) {
                         <span class="px-2 py-0.5 rounded-md ${roleColor} text-[10px] font-bold tracking-wider">${roleTitle}</span>
                     </div>
                 </div>
-                <button onclick="confirmDeleteUser('${u.username}')" class="w-10 h-10 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex justify-center items-center transition shadow-sm border border-red-100" ${u.username === 'admin' ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : 'title="ลบผู้ใช้"'}>
+                <button onclick="confirmDeleteUser('${u.username}')" class="w-10 h-10 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex justify-center items-center transition shadow-sm border border-red-100" ${u.username === 'admin' ? 'disabled style="opacity:0.3; cursor:not-allowed;"' : `title="${t('ลบถาวร')}"`}>
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
             </div>
@@ -666,42 +752,42 @@ function showAddUserModal() {
         <div id="add-user-modal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 fade-in">
             <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
                 <h3 class="font-bold text-blue-600 mb-4 text-xl border-b pb-2">
-                    <i class="fa-solid fa-user-plus mr-2"></i>เพิ่มบัญชีผู้ใช้งานใหม่
+                    <i class="fa-solid fa-user-plus mr-2"></i>${t("เพิ่มผู้ใช้")}
                 </h3>
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อ-สกุล <span class="text-red-500">*</span></label>
-                        <input type="text" id="new-user-name" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="เช่น สมชาย ใจดี">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">${t("ชื่อ-สกุล")} <span class="text-red-500">*</span></label>
+                        <input type="text" id="new-user-name" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="${t("เช่น สมชาย ใจดี")}">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Username <span class="text-red-500">*</span></label>
-                        <input type="text" id="new-user-username" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="ใช้สำหรับล็อกอิน (ห้ามซ้ำ)">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">${t("Username")} <span class="text-red-500">*</span></label>
+                        <input type="text" id="new-user-username" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="${t("ใช้สำหรับล็อกอิน (ห้ามซ้ำ)")}">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">Password <span class="text-red-500">*</span></label>
-                        <input type="password" id="new-user-password" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="กำหนดรหัสผ่าน">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">${t("Password")} <span class="text-red-500">*</span></label>
+                        <input type="password" id="new-user-password" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition" placeholder="${t("กำหนดรหัสผ่าน")}">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">สิทธิ์การใช้งาน (Role)</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">${t("สิทธิ์การใช้งาน (Role)")}</label>
                         <select id="new-user-role" onchange="toggleShiftSelect()" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition font-bold text-gray-700">
-                            <option value="operator">ฝ่ายผลิต (Operator - ถ่ายรูปฉลาก)</option>
-                            <option value="qc">หน่วยตรวจสอบ (QC - ตรวจผ่าน/ไม่ผ่าน)</option>
-                            <option value="supervisor">หัวหน้างาน (Supervisor - ตรวจผ่าน/ไม่ผ่าน)</option>
-                            <option value="admin">ผู้ดูแลระบบ (Admin - เข้าถึงได้ทุกฟังก์ชัน)</option>
+                            <option value="operator">${t("ฝ่ายผลิต (Operator - ถ่ายรูปฉลาก)")}</option>
+                            <option value="qc">${t("หน่วยตรวจสอบ (QC - ตรวจผ่าน/ไม่ผ่าน)")}</option>
+                            <option value="supervisor">${t("หัวหน้างาน (Supervisor - ตรวจผ่าน/ไม่ผ่าน)")}</option>
+                            <option value="admin">${t("ผู้ดูแลระบบ (Admin - เข้าถึงได้ทุกฟังก์ชัน)")}</option>
                         </select>
                     </div>
                     <div id="shift-container">
-                        <label class="block text-sm font-bold text-gray-700 mb-1">กะการทำงาน (Shift) <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">${t("กะการทำงาน (Shift)")} <span class="text-red-500">*</span></label>
                         <select id="new-user-shift" class="w-full border-2 p-2.5 rounded-lg outline-none focus:border-blue-500 transition font-bold text-gray-700">
-                            <option value="A">กะ A</option>
-                            <option value="B">กะ B</option>
+                            <option value="A">${t("กะ A")}</option>
+                            <option value="B">${t("กะ B")}</option>
                         </select>
                     </div>
                 </div>
                 <div class="flex gap-3 mt-6">
-                    <button onclick="document.getElementById('add-user-modal').remove()" class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold transition">ยกเลิก</button>
+                    <button onclick="document.getElementById('add-user-modal').remove()" class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold transition">${t("ยกเลิก")}</button>
                     <button onclick="executeAddUser()" id="btn-add-user" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition shadow-md flex justify-center items-center gap-2">
-                        <i class="fa-solid fa-save"></i> บันทึก
+                        <i class="fa-solid fa-save"></i> ${t("บันทึก")}
                     </button>
                 </div>
             </div>
@@ -725,7 +811,7 @@ function executeAddUser() {
     const role = document.getElementById('new-user-role').value;
     const shift = document.getElementById('new-user-shift') ? document.getElementById('new-user-shift').value : '';
     
-    if (!name || !username || !password) return showCustomAlert("กรุณากรอกข้อมูลให้ครบถ้วน");
+    if (!name || !username || !password) return showCustomAlert(currentLang === 'EN' ? "Please fill all fields" : "กรุณากรอกข้อมูลให้ครบถ้วน");
     
     const btn = document.getElementById('btn-add-user'); 
     btn.innerHTML = `<div class="loader loader-white"></div>`; 
@@ -739,7 +825,7 @@ function executeAddUser() {
     .then(res => { 
         if (res.success) { 
             document.getElementById('add-user-modal').remove(); 
-            showCustomAlert(`เพิ่มบัญชี "${name}" เข้าสู่ระบบเรียบร้อย`, true); 
+            showCustomAlert(currentLang === 'EN' ? "Account added successfully" : `เพิ่มบัญชี "${name}" เข้าสู่ระบบเรียบร้อย`, true); 
             fetchUsersList(); 
         } else {
             throw new Error(res.error); 
@@ -747,7 +833,7 @@ function executeAddUser() {
     })
     .catch(err => { 
         showCustomAlert(err.message); 
-        btn.innerHTML = `<i class="fa-solid fa-save"></i> บันทึก`; 
+        btn.innerHTML = `<i class="fa-solid fa-save"></i> ${t("บันทึก")}`; 
         btn.disabled = false; 
     });
 }
@@ -757,12 +843,12 @@ function confirmDeleteUser(username) {
         <div id="delete-modal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 fade-in">
             <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full text-center">
                 <i class="fa-solid fa-triangle-exclamation text-red-500 text-5xl mb-4"></i>
-                <h3 class="font-bold text-gray-800 text-lg mb-2">ยืนยันการลบผู้ใช้?</h3>
-                <p class="text-sm text-gray-600 mb-6">คุณกำลังจะลบบัญชี <span class="font-bold text-red-600">${username}</span><br>การกระทำนี้ไม่สามารถกู้คืนได้</p>
+                <h3 class="font-bold text-gray-800 text-lg mb-2">${t("ยืนยันการลบผู้ใช้?")}</h3>
+                <p class="text-sm text-gray-600 mb-6">${t("คุณกำลังจะลบบัญชี")} <span class="font-bold text-red-600">${username}</span><br>${t("การกระทำนี้ไม่สามารถกู้คืนได้")}</p>
                 <div class="flex gap-3">
-                    <button onclick="document.getElementById('delete-modal').remove()" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition">ยกเลิก</button>
+                    <button onclick="document.getElementById('delete-modal').remove()" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition">${t("ยกเลิก")}</button>
                     <button onclick="executeDeleteUser('${username}')" id="btn-delete-user" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition flex justify-center items-center">
-                        <i class="fa-solid fa-trash-can mr-2"></i> ลบถาวร
+                        <i class="fa-solid fa-trash-can mr-2"></i> ${t("ลบถาวร")}
                     </button>
                 </div>
             </div>
@@ -784,7 +870,7 @@ function executeDeleteUser(username) {
     .then(res => { 
         if(res.success) { 
             document.getElementById('delete-modal').remove(); 
-            showCustomAlert(`ลบบัญชี ${username} ออกจากระบบแล้ว`, true); 
+            showCustomAlert(currentLang === 'EN' ? "Account deleted successfully" : `ลบบัญชี ${username} ออกจากระบบแล้ว`, true); 
             fetchUsersList(); 
         } else {
             throw new Error(res.error); 
@@ -800,47 +886,39 @@ function executeDeleteUser(username) {
 // RENDER VIEWS (SCAN)
 // ==========================================
 
-// 🟢 ตัวสร้าง HTML สำหรับ Dropdown ของ Batch เพื่อให้อัปเดตได้โดยไม่กระพริบ
 function getBatchOptionsHTML() {
     let options = '';
     if (isLoadingJobs) {
-        options = `<option value="">⏳ กำลังตรวจสอบเครื่องปริ้น...</option>`;
+        options = `<option value="">${t("กำลังตรวจสอบเครื่องปริ้น...")}</option>`;
     } else {
         if (dbBatches.length === 0) {
-            options = `<option value="">❌ ไม่พบคิวการปริ้น (กรุณาสั่งปริ้นก่อนเข้าแอป)</option>`;
+            options = `<option value="">❌ ${t("ไม่พบคิวการปริ้น (กรุณาสั่งปริ้นก่อนเข้าแอป)")}</option>`;
         } else {
-            options = `<option value="">-- เลือกเลข Batch ที่เพิ่งปริ้น --</option>` + dbBatches.map(b => {
+            options = `<option value="">${t("-- เลือกเลข Batch ที่เพิ่งปริ้น --")}</option>` + dbBatches.map(b => {
                 let cleanDocName = b.docName ? b.docName.split('\\').pop().split('/').pop() : 'Unknown';
-                return `<option value="${b.batchNo}">${b.batchNo} (ไฟล์: ${cleanDocName} | ${b.timestamp.split(' ')[1]})</option>`;
+                return `<option value="${b.batchNo}">${b.batchNo} (File: ${cleanDocName} | ${b.timestamp.split(' ')[1]})</option>`;
             }).join('');
         }
-        
-        // ตัวเลือกสำหรับสร้าง ID กรณีเน็ตเวิร์กที่เครื่องปริ้นหลุด 
-        options += `<option value="MANUAL" class="text-red-600 font-bold">⚠️ ฉุกเฉิน: ไม่พบเลขในระบบ (กรอกเอง)</option>`;
+        options += `<option value="MANUAL" class="text-red-600 font-bold">${t("⚠️ ฉุกเฉิน: ไม่พบเลขในระบบ (กรอกเอง)")}</option>`;
     }
     return options;
 }
 
-// 🟢 อัปเดต Dropdown โดยไม่กระพริบ
 function updateBatchDropdownUI() {
     const select = document.getElementById('batch-selector');
     if (select) {
         const currentVal = select.value;
         select.innerHTML = getBatchOptionsHTML();
-        // พยายามเก็บค่าที่เคยเลือกไว้ ถ้ายังมีอยู่ในตัวเลือก
         if (currentVal && select.querySelector(`option[value="${currentVal}"]`)) {
             select.value = currentVal;
         }
     }
-    
-    // อัปเดตปุ่มกดต่างๆ
     const defectBtn = document.getElementById('defect-mode-btn');
     if (defectBtn && dbBatches) {
          defectBtn.disabled = dbBatches.length === 0 && !document.getElementById('manual-batch-input')?.value;
     }
 }
 
-// 🟢 เพิ่มฟังก์ชันเปิด/ปิดกล่องกรอกเลข Batch แบบ Manual (รองรับกรณี Network ขัดข้อง)
 window.toggleManualBatchInput = function() {
     const select = document.getElementById('batch-selector');
     const container = document.getElementById('manual-batch-container');
@@ -849,8 +927,6 @@ window.toggleManualBatchInput = function() {
     if (select && container && input) {
         if (select.value === 'MANUAL') {
             container.style.display = 'block';
-            
-            // 🟢 สร้างรหัสฉุกเฉินอัตโนมัติ ถ้าช่องยังว่างอยู่ 
             if (!input.value) {
                 const d = new Date();
                 const y = String(d.getFullYear()).slice(-2);
@@ -859,8 +935,6 @@ window.toggleManualBatchInput = function() {
                 const h = String(d.getHours()).padStart(2, '0');
                 const min = String(d.getMinutes()).padStart(2, '0');
                 const sec = String(d.getSeconds()).padStart(2, '0');
-                
-                // ใส่ [NET-ERR] ต่อท้ายเพื่อให้รู้ว่าเกิดจากอะไร
                 input.value = `B-${y}${m}${day}-${h}${min}${sec} [NET-ERR]`;
             }
         } else {
@@ -875,14 +949,14 @@ function renderScanView(container) {
         let isSelectDisabled = false;
 
         if (isLoadingJobs) {
-            jobOptions = `<option value="">⏳ กำลังโหลดแผนจาก API...</option>`;
+            jobOptions = `<option value="">${t("⏳ กำลังโหลดแผนจาก API...")}</option>`;
             isSelectDisabled = true;
         } else {
             if (dbJobs.length === 0) {
-                jobOptions = `<option value="">❌ ไม่พบ Job Order</option>`;
+                jobOptions = `<option value="">${t("❌ ไม่พบ Job Order")}</option>`;
                 isSelectDisabled = true;
             } else {
-                jobOptions = `<option value="">-- เลือก Job Order --</option>` + dbJobs.map(j => `<option value="${j.job}">${j.job} (Model: ${j.targetModel})</option>`).join('');
+                jobOptions = `<option value="">${t("-- เลือก Job Order --")}</option>` + dbJobs.map(j => `<option value="${j.job}">${j.job} (Model: ${j.targetModel})</option>`).join('');
             }
         }
 
@@ -890,35 +964,34 @@ function renderScanView(container) {
             <div class="max-w-md mx-auto fade-in mt-10 p-4">
                 <div class="bg-white rounded-xl shadow p-6 border-t-4 border-blue-500">
                     <h2 class="font-bold text-lg text-gray-800 mb-4">
-                        <i class="fa-solid fa-clipboard-list text-blue-500 mr-2"></i> 1. เตรียมการสแกน
+                        <i class="fa-solid fa-clipboard-list text-blue-500 mr-2"></i> 1. ${t("เตรียมการสแกน")}
                     </h2>
                     
-                    <p class="text-xs text-gray-500 mb-1">เลือก Job Order</p>
+                    <p class="text-xs text-gray-500 mb-1">${t("เลือก Job Order")}</p>
                     <select id="job-selector" class="w-full p-3 border rounded-lg bg-gray-50 text-base font-bold mb-4 text-gray-800" ${isSelectDisabled ? 'disabled' : ''}>
                         ${jobOptions}
                     </select>
 
                     <p class="text-xs text-blue-600 font-bold mb-1">
-                        <i class="fa-solid fa-print"></i> เลือกรหัสเครื่องปริ้น (Batch No)
+                        <i class="fa-solid fa-print"></i> ${t("เลือกรหัสเครื่องปริ้น (Batch No)")}
                     </p>
                     <select id="batch-selector" onchange="toggleManualBatchInput()" class="w-full p-3 border-2 border-blue-200 rounded-lg bg-blue-50 text-base font-bold mb-2 text-blue-800" ${isSelectDisabled ? 'disabled' : ''}>
                         ${getBatchOptionsHTML()}
                     </select>
                     
-                    <!-- 🟢 กล่องกรอกข้อมูลกรณีฉุกเฉิน (จะซ่อนไว้ก่อน) -->
                     <div id="manual-batch-container" style="display: none;" class="mb-6 fade-in">
-                        <label class="block text-[10px] text-red-500 uppercase font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> รหัสอ้างอิงสร้างอัตโนมัติเนื่องจาก Network ปลายทางขาดการเชื่อมต่อ</label>
-                        <input type="text" id="manual-batch-input" class="w-full p-3 border-2 border-red-300 rounded-lg bg-red-50 text-red-800 font-bold outline-none focus:border-red-500 transition" placeholder="พิมพ์เลข Batch / อ้างอิงฉุกเฉิน...">
+                        <label class="block text-[10px] text-red-500 uppercase font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> ${t("รหัสอ้างอิงสร้างอัตโนมัติเนื่องจาก Network ปลายทางขาดการเชื่อมต่อ")}</label>
+                        <input type="text" id="manual-batch-input" class="w-full p-3 border-2 border-red-300 rounded-lg bg-red-50 text-red-800 font-bold outline-none focus:border-red-500 transition" placeholder="${t("พิมพ์เลข Batch / อ้างอิงฉุกเฉิน...")}">
                     </div>
 
                     <div class="${isSelectDisabled ? 'mt-6' : ''} grid grid-cols-2 gap-2 mt-2">
                         <button onclick="selectJobAndStartCamera()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition disabled:opacity-50 flex flex-col justify-center items-center gap-1" ${isSelectDisabled ? 'disabled' : ''}>
                             <i class="fa-solid fa-camera text-xl"></i> 
-                            <span class="text-sm">สแกนปกติ</span>
+                            <span class="text-sm">${t("สแกนปกติ")}</span>
                         </button>
                         <button id="defect-mode-btn" onclick="startDefectMode()" class="w-full py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg shadow-md transition disabled:opacity-50 flex flex-col justify-center items-center gap-1" ${isSelectDisabled ? 'disabled' : ''}>
                             <i class="fa-solid fa-trash-can text-xl"></i> 
-                            <span class="text-sm">แจ้งปริ้นเสีย</span>
+                            <span class="text-sm">${t("แจ้งปริ้นเสีย")}</span>
                         </button>
                     </div>
                 </div>
@@ -932,8 +1005,8 @@ function renderScanView(container) {
 
     if (!capturedImageBase64 && !isProcessingOCR) {
         let shutterAction = isDefectMode ? "captureDefectImage()" : "captureImage()";
-        let headerText = isDefectMode ? "ถ่ายรูปหลักฐานงานเสีย" : currentSelectedJob;
-        let subText = isDefectMode ? `<i class="fa-solid fa-print"></i> โหมดบันทึกงานเสีย` : `<i class="fa-solid fa-print"></i> ${currentSelectedBatch}`;
+        let headerText = isDefectMode ? t("ถ่ายรูปหลักฐานงานเสีย") : currentSelectedJob;
+        let subText = isDefectMode ? `<i class="fa-solid fa-print"></i> ${t("โหมดบันทึกงานเสีย")}` : `<i class="fa-solid fa-print"></i> ${currentSelectedBatch}`;
         
         container.innerHTML = `
             <div class="fixed inset-0 z-50 bg-black flex flex-col fade-in">
@@ -968,45 +1041,43 @@ function renderScanView(container) {
 
     let innerContent = '';
     
-    // หน้าต่างสำหรับโหมดงานเสีย
     if (isDefectMode) {
         innerContent = `
             <div class="space-y-4">
                 <h3 class="font-bold text-red-600 text-sm flex items-center border-b pb-2">
-                    <i class="fa-solid fa-triangle-exclamation mr-2 text-lg"></i> บันทึกข้อมูลงานเสีย (Defect)
+                    <i class="fa-solid fa-triangle-exclamation mr-2 text-lg"></i> ${t("บันทึกข้อมูลงานเสีย (Defect)")}
                 </h3>
                 <div class="space-y-3">
                     <div>
-                        <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">จำนวนที่ปริ้นเสีย (ดวง) <span class="text-red-500">*</span></label>
-                        <input type="number" id="defect-qty" class="w-full border-2 border-red-200 py-2 px-3 rounded-lg font-bold text-gray-800 text-base focus:border-red-500 outline-none transition bg-red-50" placeholder="ระบุจำนวน">
+                        <label class="block text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">${t("จำนวนที่ปริ้นเสีย (ดวง)")} <span class="text-red-500">*</span></label>
+                        <input type="number" id="defect-qty" class="w-full border-2 border-red-200 py-2 px-3 rounded-lg font-bold text-gray-800 text-base focus:border-red-500 outline-none transition bg-red-50" placeholder="${t("ระบุจำนวน")}">
                     </div>
                     <div>
-                        <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">สาเหตุ / อาการเสีย <span class="text-red-500">*</span></label>
-                        <textarea id="defect-reason" rows="3" class="w-full border-2 border-gray-200 py-2 px-3 rounded-lg text-sm focus:border-red-500 outline-none transition" placeholder="เช่น กระดาษติด, หมึกจาง, ปริ้นเทสระบบ..."></textarea>
+                        <label class="block text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">${t("สาเหตุ / อาการเสีย")} <span class="text-red-500">*</span></label>
+                        <textarea id="defect-reason" rows="3" class="w-full border-2 border-gray-200 py-2 px-3 rounded-lg text-sm focus:border-red-500 outline-none transition" placeholder="${t("เช่น กระดาษติด, หมึกจาง, ปริ้นเทสระบบ...")}"></textarea>
                     </div>
                 </div>
                 <div id="submit-action-container">
                     <button onclick="submitDefectToQC()" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-md transition mt-4 flex justify-center items-center gap-2" id="submit-btn">
-                        <i class="fa-solid fa-save"></i> บันทึกข้อมูลงานเสีย
+                        <i class="fa-solid fa-save"></i> ${t("บันทึกข้อมูลงานเสีย")}
                     </button>
                 </div>
             </div>
         `;
     } 
-    // หน้าต่างสำหรับสแกนปกติ
     else if (isProcessingOCR) {
         innerContent = `
             <div class="h-full flex flex-col justify-center items-center py-10">
                 <div class="loader loader-blue loader-large mb-4"></div>
-                <p class="text-blue-600 font-bold mt-4">AI กำลังอ่านข้อความ...</p>
-                <p class="text-xs text-gray-500 mt-2 text-center">ระบบกำลังสกัดข้อมูลจากรูปภาพ<br>และคำนวณตรวจสอบความถูกต้อง</p>
+                <p class="text-blue-600 font-bold mt-4">${t("AI กำลังอ่านข้อความ...")}</p>
+                <p class="text-xs text-gray-500 mt-2 text-center">${t("ระบบกำลังสกัดข้อมูลจากรูปภาพ<br>และคำนวณตรวจสอบความถูกต้อง")}</p>
             </div>
         `;
     } else {
         let testModeHtml = currentUser.role === 'admin' ? `
             <div class="mt-4 flex items-center justify-between bg-yellow-50 p-3 rounded-lg border border-yellow-200">
                 <label for="test-mode-toggle" class="text-sm font-bold text-yellow-800 flex items-center gap-2 cursor-pointer">
-                    <i class="fa-solid fa-flask text-yellow-600"></i> ส่งเป็นข้อมูลทดสอบระบบ
+                    <i class="fa-solid fa-flask text-yellow-600"></i> ${t("ส่งเป็นข้อมูลทดสอบระบบ")}
                 </label>
                 <input type="checkbox" id="test-mode-toggle" class="w-5 h-5 accent-yellow-600 cursor-pointer">
             </div>
@@ -1016,22 +1087,24 @@ function renderScanView(container) {
         if (!verificationResult) {
             verifyHtml = `
                 <button onclick="runSmartVerification()" class="w-full py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg shadow transition mt-6 flex justify-center items-center gap-2">
-                    <i class="fa-solid fa-magnifying-glass-check"></i> กดตรวจสอบความถูกต้อง
+                    <i class="fa-solid fa-magnifying-glass-check"></i> ${t("กดตรวจสอบความถูกต้อง")}
                 </button>
             `;
         } else {
             let msgList = verificationResult.messages.map(m => `<li>${m}</li>`).join('');
+            let resultIcon = verificationResult.isPass ? '<i class="fa-solid fa-circle-check mr-2 text-xl"></i>' : '<i class="fa-solid fa-circle-xmark mr-2 text-xl"></i>';
+            let resultText = verificationResult.isPass ? t("ผลตรวจสอบ: ผ่าน (PASS)") : t("ผลตรวจสอบ: พบข้อผิดพลาด (NG)");
             verifyHtml = `
                 <div class="mt-4 p-4 rounded-xl border-2 ${verificationResult.isPass ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
                     <h4 class="font-bold text-base mb-3 flex items-center ${verificationResult.isPass ? 'text-green-700' : 'text-red-700'}">
-                        ${verificationResult.isPass ? '<i class="fa-solid fa-circle-check mr-2 text-xl"></i> ผลตรวจสอบ: ผ่าน (PASS)' : '<i class="fa-solid fa-circle-xmark mr-2 text-xl"></i> ผลตรวจสอบ: พบข้อผิดพลาด (NG)'}
+                        ${resultIcon} ${resultText}
                     </h4>
                     <ul class="text-xs space-y-1.5 text-gray-700">${msgList}</ul>
                 </div>
                 ${testModeHtml}
                 <div id="submit-action-container">
                     <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" ${!verificationResult.isPass ? 'disabled' : ''} id="submit-btn">
-                        <i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC
+                        <i class="fa-solid fa-paper-plane"></i> ${t("ส่งผลตรวจสอบให้ QC")}
                     </button>
                 </div>
             `;
@@ -1040,7 +1113,7 @@ function renderScanView(container) {
         innerContent = `
             <div class="space-y-4">
                 <h3 class="font-bold text-sm text-gray-700 flex items-center border-b pb-2">
-                    <i class="fa-solid fa-robot text-blue-500 mr-2 text-lg"></i> ผลลัพธ์ที่ AI อ่านได้
+                    <i class="fa-solid fa-robot text-blue-500 mr-2 text-lg"></i> ${t("ผลลัพธ์ที่ AI อ่านได้")}
                 </h3>
                 <div class="space-y-3">
                     <div>
@@ -1053,12 +1126,12 @@ function renderScanView(container) {
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">3. วันที่ผลิต</label>
+                            <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">3. ${t("วันที่ผลิต")}</label>
                             <input type="text" id="ocr-date" class="w-full border-b-2 border-gray-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition" value="${safeDate}">
                         </div>
                         <div>
-                            <label class="text-[10px] text-blue-600 uppercase font-bold tracking-wider">4. จำนวน (Print Qty) <span class="text-red-500">*</span></label>
-                            <input type="number" id="ocr-qty" class="w-full border-b-2 border-blue-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition bg-blue-50 px-2 rounded-t-md" value="${safeQty}" placeholder="ระบุจำนวน">
+                            <label class="text-[10px] text-blue-600 uppercase font-bold tracking-wider">4. ${t("จำนวน (Print Qty)")} <span class="text-red-500">*</span></label>
+                            <input type="number" id="ocr-qty" class="w-full border-b-2 border-blue-200 py-1 font-bold text-gray-800 text-base focus:border-blue-500 outline-none transition bg-blue-50 px-2 rounded-t-md" value="${safeQty}" placeholder="${t("ระบุจำนวน")}">
                         </div>
                     </div>
                 </div>
@@ -1068,37 +1141,37 @@ function renderScanView(container) {
     }
 
     container.innerHTML = `
-        <div class="max-w-md mx-auto fade-in h-full flex flex-col pb-4 p-4">
-            <div class="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
+        <div class="max-w-md mx-auto fade-in h-full flex flex-col pb-4 md:pt-4">
+            <div class="bg-white rounded-xl shadow-sm md:shadow-md overflow-hidden flex-1 flex flex-col border border-gray-200">
                 <div class="p-3 ${isDefectMode ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'} border-b flex justify-between items-center">
                     <div>
                         <span class="text-[10px] text-gray-500 uppercase tracking-wider block font-bold">
-                            ${isDefectMode ? 'โหมดงานเสีย' : 'Job ปัจจุบัน'}
+                            ${isDefectMode ? t('โหมดงานเสีย') : t('Job ปัจจุบัน')}
                         </span>
                         <span class="font-bold ${isDefectMode ? 'text-red-800' : 'text-blue-800'} text-sm">
-                            ${isDefectMode ? 'แจ้งปัญหาการปริ้น' : currentSelectedJob}
+                            ${isDefectMode ? t('แจ้งปัญหาการปริ้น') : currentSelectedJob}
                         </span>
                         <span class="block text-[10px] ${isDefectMode ? 'text-red-600' : 'text-blue-600'} font-bold mt-0.5">
                             <i class="fa-solid fa-print"></i> ${currentSelectedBatch}
                         </span>
                     </div>
                     <button onclick="changeJob()" class="text-[10px] ${isDefectMode ? 'text-red-600 border-red-600' : 'text-blue-600 border-blue-600'} border px-2 py-1 rounded bg-white font-bold h-fit">
-                        <i class="fa-solid fa-pen"></i> เปลี่ยน
+                        <i class="fa-solid fa-pen"></i> ${t("เปลี่ยน")}
                     </button>
                 </div>
                 
-                <div class="bg-black flex justify-center items-center h-48 relative border-b cursor-pointer" onclick="if('${capturedImageBase64}') showImageModal('${capturedImageBase64}')" title="คลิกเพื่อขยายรูปภาพ">
+                <div class="bg-black flex justify-center items-center h-48 md:h-64 relative border-b cursor-pointer" onclick="if('${capturedImageBase64}') showImageModal('${capturedImageBase64}')" title="คลิกเพื่อขยายรูปภาพ">
                     <div class="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs backdrop-blur-sm pointer-events-none z-10">
-                        <i class="fa-solid fa-magnifying-glass-plus"></i> ขยาย
+                        <i class="fa-solid fa-magnifying-glass-plus"></i> ${t("ขยาย")}
                     </div>
                     <img src="${capturedImageBase64 || ''}" class="w-full h-full object-contain pointer-events-none" />
                     
                     <button onclick="event.stopPropagation(); retakePhoto()" class="absolute bottom-2 right-2 bg-black/60 text-white px-3 py-1.5 rounded-lg text-xs backdrop-blur-sm border border-white/20 shadow z-10">
-                        <i class="fa-solid fa-rotate-right mr-1"></i> ถ่ายใหม่
+                        <i class="fa-solid fa-rotate-right mr-1"></i> ${t("ถ่ายใหม่")}
                     </button>
                 </div>
                 
-                <div class="p-4 bg-white overflow-y-auto">
+                <div class="p-4 bg-white overflow-y-auto flex-1">
                     ${innerContent}
                 </div>
             </div>
@@ -1106,11 +1179,8 @@ function renderScanView(container) {
     `;
 }
 
-// 🟢 ฟังก์ชันดึงค่า Batch (รับมือกับกรณีพิมพ์เอง)
 function getSelectedBatchValue() {
     let val = document.getElementById('batch-selector') ? document.getElementById('batch-selector').value : null;
-    
-    // ถ้าผู้ใช้เลือกโหมดฉุกเฉิน ให้ไปดึงค่าจากช่อง Input ที่พิมพ์เองแทน
     if (val === 'MANUAL') {
         val = document.getElementById('manual-batch-input') ? document.getElementById('manual-batch-input').value.trim() : "";
     }
@@ -1121,8 +1191,8 @@ function selectJobAndStartCamera() {
     currentSelectedJob = document.getElementById('job-selector').value;
     currentSelectedBatch = getSelectedBatchValue();
 
-    if(!currentSelectedJob) return showCustomAlert("กรุณาเลือก Job Order ก่อนครับ");
-    if(!currentSelectedBatch || currentSelectedBatch === '[NET-ERR] ') return showCustomAlert("กรุณาเลือกหรือกรอกเลข Batch อ้างอิง ก่อนครับ");
+    if(!currentSelectedJob) return showCustomAlert(t("กรุณาเลือก Job Order ก่อนครับ"));
+    if(!currentSelectedBatch || currentSelectedBatch.includes('[NET-ERR] ') && currentSelectedBatch.trim() === '[NET-ERR]') return showCustomAlert(t("กรุณาเลือกหรือกรอกเลข Batch อ้างอิง ก่อนครับ"));
 
     isDefectMode = false;
     renderMainApp();
@@ -1130,7 +1200,7 @@ function selectJobAndStartCamera() {
 
 function startDefectMode() {
     currentSelectedBatch = getSelectedBatchValue();
-    if(!currentSelectedBatch || currentSelectedBatch === '[NET-ERR] ') return showCustomAlert("กรุณาเลือกหรือกรอกเลข Batch อ้างอิงที่ต้องการแจ้งเสียก่อนครับ");
+    if(!currentSelectedBatch || currentSelectedBatch.includes('[NET-ERR] ') && currentSelectedBatch.trim() === '[NET-ERR]') return showCustomAlert(t("กรุณาเลือกหรือกรอกเลข Batch อ้างอิงที่ต้องการแจ้งเสียก่อนครับ"));
     
     isDefectMode = true;
     currentSelectedJob = "DEFECT"; 
@@ -1146,10 +1216,7 @@ function changeJob() {
     isDefectMode = false;
     
     try { 
-        extractedModel = ""; 
-        extractedLot = ""; 
-        extractedDate = ""; 
-        extractedQty = ""; 
+        extractedModel = ""; extractedLot = ""; extractedDate = ""; extractedQty = ""; 
     } catch(e) {}
     
     stopCamera(); 
@@ -1158,74 +1225,45 @@ function changeJob() {
 
 function submitToQC() {
     const qtyInput = document.getElementById('ocr-qty');
-    if (qtyInput && !qtyInput.value.trim()) return showCustomAlert("กรุณาระบุ 'จำนวน (Print Qty)' ก่อนส่งให้ QC ตรวจสอบ");
+    if (qtyInput && !qtyInput.value.trim()) return showCustomAlert(t("กรุณาระบุ 'จำนวน (Print Qty)' ก่อนส่งให้ QC ตรวจสอบ"));
 
     const isTestMode = document.getElementById('test-mode-toggle') && document.getElementById('test-mode-toggle').checked;
     const finalJobOrder = isTestMode ? `[TEST] ${currentSelectedJob}` : currentSelectedJob;
 
     const btnContainer = document.getElementById('submit-action-container');
     if(btnContainer) {
-        btnContainer.innerHTML = `
-            <div class="w-full text-center py-4 text-blue-600 font-bold bg-blue-50 rounded-lg mt-4 border border-blue-200">
-                <div class="loader loader-blue mb-2"></div> กำลังอัปโหลดข้อมูลสู่ Cloud...
-            </div>
-        `;
+        btnContainer.innerHTML = `<div class="w-full text-center py-4 text-blue-600 font-bold bg-blue-50 rounded-lg mt-4 border border-blue-200"><div class="loader loader-blue mb-2"></div> ${t("กำลังอัปโหลดข้อมูลสู่ Cloud...")}</div>`;
     }
 
     const img = new Image();
     img.onload = function() {
         const canvas = document.createElement('canvas');
         const MAX_WIDTH = 800; 
-        let width = img.width; 
-        let height = img.height;
-        
-        if (width > MAX_WIDTH) { 
-            height = Math.floor(height * (MAX_WIDTH / width)); 
-            width = MAX_WIDTH; 
-        }
-        
-        canvas.width = width; 
-        canvas.height = height; 
-        const ctx = canvas.getContext('2d'); 
-        ctx.drawImage(img, 0, 0, width, height);
+        let width = img.width; let height = img.height;
+        if (width > MAX_WIDTH) { height = Math.floor(height * (MAX_WIDTH / width)); width = MAX_WIDTH; }
+        canvas.width = width; canvas.height = height; 
+        const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
         
         const reducedImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
 
         const newTicket = {
-            jobOrder: finalJobOrder, 
-            model: document.getElementById('ocr-model').value, 
-            lot: document.getElementById('ocr-lot').value,
-            date: document.getElementById('ocr-date').value, 
-            qty: qtyInput ? qtyInput.value.trim() : '', 
-            operator: currentUser.name, 
-            batchNo: currentSelectedBatch, 
-            image: reducedImageBase64
+            jobOrder: finalJobOrder, model: document.getElementById('ocr-model').value, lot: document.getElementById('ocr-lot').value,
+            date: document.getElementById('ocr-date').value, qty: qtyInput ? qtyInput.value.trim() : '', 
+            operator: currentUser.name, batchNo: currentSelectedBatch, image: reducedImageBase64
         };
 
-        fetch(API_URL, { 
-            method: 'POST', 
-            body: JSON.stringify({ action: "saveTicket", payload: newTicket }) 
-        })
+        fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "saveTicket", payload: newTicket }) })
         .then(res => res.json())
         .then(res => {
             if (res.success) { 
-                showCustomAlert(`ส่งข้อมูลให้ QC ตรวจสอบสำเร็จ!`, true); 
-                capturedImageBase64 = null; 
-                verificationResult = null; 
-                fetchPeriodicData(true); 
-                switchTab('inbox'); 
-            } else {
-                throw new Error(res.error);
-            }
+                showCustomAlert(t("ส่งข้อมูลให้ QC ตรวจสอบสำเร็จ!"), true); 
+                capturedImageBase64 = null; verificationResult = null; fetchPeriodicData(true); switchTab('inbox'); 
+            } else throw new Error(res.error);
         })
         .catch(err => {
-            showCustomAlert("เกิดข้อผิดพลาดในการบันทึก: " + err.message);
+            showCustomAlert((currentLang==='EN'?"Error saving data: ":"เกิดข้อผิดพลาดในการบันทึก: ") + err.message);
             if(btnContainer) {
-                btnContainer.innerHTML = `
-                    <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 flex justify-center items-center gap-2" id="submit-btn">
-                        <i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC
-                    </button>
-                `;
+                btnContainer.innerHTML = `<button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 flex justify-center items-center gap-2" id="submit-btn"><i class="fa-solid fa-paper-plane"></i> ${t("ส่งผลตรวจสอบให้ QC")}</button>`;
             }
         });
     };
@@ -1236,56 +1274,32 @@ function submitDefectToQC() {
     const qtyInput = document.getElementById('defect-qty');
     const reasonInput = document.getElementById('defect-reason');
 
-    if (!qtyInput || !qtyInput.value.trim()) return showCustomAlert("กรุณาระบุ 'จำนวนที่ปริ้นเสีย'");
-    if (!reasonInput || !reasonInput.value.trim()) return showCustomAlert("กรุณาระบุ 'สาเหตุ/อาการเสีย'");
+    if (!qtyInput || !qtyInput.value.trim()) return showCustomAlert(t("กรุณาระบุ 'จำนวนที่ปริ้นเสีย'"));
+    if (!reasonInput || !reasonInput.value.trim()) return showCustomAlert(t("กรุณาระบุ 'สาเหตุ/อาการเสีย'"));
 
     const btnContainer = document.getElementById('submit-action-container');
     if(btnContainer) {
-        btnContainer.innerHTML = `
-            <div class="w-full text-center py-4 text-red-600 font-bold bg-red-50 rounded-lg mt-4 border border-red-200">
-                <div class="loader loader-blue mb-2" style="border-top-color:#ef4444;"></div> กำลังบันทึกข้อมูลงานเสีย...
-            </div>
-        `;
+        btnContainer.innerHTML = `<div class="w-full text-center py-4 text-red-600 font-bold bg-red-50 rounded-lg mt-4 border border-red-200"><div class="loader loader-blue mb-2" style="border-top-color:#ef4444;"></div> ${t("กำลังอัปโหลดข้อมูลสู่ Cloud...")}</div>`;
     }
 
     const newTicket = {
-        jobOrder: "DEFECT", 
-        model: "-", 
-        lot: "-", 
-        date: "-",
-        qty: qtyInput.value.trim(), 
-        operator: currentUser.name,
-        batchNo: currentSelectedBatch,
-        image: capturedImageBase64,
-        defectReason: reasonInput.value.trim()
+        jobOrder: "DEFECT", model: "-", lot: "-", date: "-", qty: qtyInput.value.trim(), 
+        operator: currentUser.name, batchNo: currentSelectedBatch, image: capturedImageBase64, defectReason: reasonInput.value.trim()
     };
 
-    fetch(API_URL, { 
-        method: 'POST', 
-        body: JSON.stringify({ action: "saveDefect", payload: newTicket }) 
-    })
+    fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: "saveDefect", payload: newTicket }) })
     .then(res => res.json())
     .then(res => {
         if (res.success) {
-            showCustomAlert(`บันทึกข้อมูลงานเสีย (Defect) สำเร็จ!`, true);
-            capturedImageBase64 = null; 
-            isDefectMode = false;
-            currentSelectedJob = null; 
-            currentSelectedBatch = null;
-            fetchPeriodicData(true); 
-            switchTab('inbox');
-        } else {
-            throw new Error(res.error);
-        }
+            showCustomAlert(t("บันทึกข้อมูลงานเสีย (Defect) สำเร็จ!"), true);
+            capturedImageBase64 = null; isDefectMode = false; currentSelectedJob = null; currentSelectedBatch = null;
+            fetchPeriodicData(true); switchTab('inbox');
+        } else throw new Error(res.error);
     })
     .catch(err => {
-        showCustomAlert("เกิดข้อผิดพลาดในการบันทึก: " + err.message);
+        showCustomAlert((currentLang==='EN'?"Error saving data: ":"เกิดข้อผิดพลาดในการบันทึก: ") + err.message);
         if(btnContainer) {
-            btnContainer.innerHTML = `
-                <button onclick="submitDefectToQC()" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-md transition mt-4 flex justify-center items-center gap-2" id="submit-btn">
-                    <i class="fa-solid fa-save"></i> บันทึกงานเสีย
-                </button>
-            `;
+            btnContainer.innerHTML = `<button onclick="submitDefectToQC()" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-md transition mt-4 flex justify-center items-center gap-2" id="submit-btn"><i class="fa-solid fa-save"></i> ${t("บันทึกข้อมูลงานเสีย")}</button>`;
         }
     });
 }
@@ -1300,37 +1314,29 @@ let inboxEndDate = getTodayDateString();
 
 function setInboxFilter(filter) { 
     currentInboxFilter = filter; 
-    updateInboxListUI(); // 🟢 ใช้การวาดใหม่แค่ส่วนของกล่องข้อความ
+    updateInboxListUI(); 
 }
 
 function executeInboxSearch() { 
     const input = document.getElementById('inbox-search-input'); 
     if (input) { 
         inboxSearchTerm = input.value.trim().toLowerCase(); 
-        updateInboxListUI(); // 🟢 วาดแค่รายการใหม่
+        updateInboxListUI(); 
     } 
 }
 
 function executeInboxDateFilter() {
     const startInput = document.getElementById('inbox-start-date'); 
     const endInput = document.getElementById('inbox-end-date');
-    
     if (startInput) inboxStartDate = startInput.value; 
     if (endInput) inboxEndDate = endInput.value; 
-    
-    updateInboxListUI(); // 🟢 วาดแค่รายการใหม่
+    updateInboxListUI(); 
 }
 
-// 🟢 ตัวสร้าง HTML ภายในกล่องข้อความ (เพื่อให้ไม่กระพริบเวลาอัปเดต)
 function getInboxListHTML() {
     let baseTickets = dbTickets;
-    
-    if (currentUser.role !== 'admin') {
-        baseTickets = baseTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
-    }
-    if (currentUser.role === 'operator') {
-        baseTickets = baseTickets.filter(t => t.operator === currentUser.name);
-    }
+    if (currentUser.role !== 'admin') baseTickets = baseTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
+    if (currentUser.role === 'operator') baseTickets = baseTickets.filter(t => t.operator === currentUser.name);
 
     baseTickets = baseTickets.filter(t => {
         const tDate = parseTicketDate(t.timestamp);
@@ -1344,68 +1350,59 @@ function getInboxListHTML() {
 
     if (inboxSearchTerm) {
         displayTickets = displayTickets.filter(t => 
-            t.jobOrder.toLowerCase().includes(inboxSearchTerm) || 
-            t.model.toLowerCase().includes(inboxSearchTerm) || 
-            t.lot.toLowerCase().includes(inboxSearchTerm)
+            t.jobOrder.toLowerCase().includes(inboxSearchTerm) || t.model.toLowerCase().includes(inboxSearchTerm) || t.lot.toLowerCase().includes(inboxSearchTerm)
         );
     }
     
     displayTickets.sort((a, b) => b.id.localeCompare(a.id));
 
-    let html = '';
+    // 🟢 วาง Layout เป็น Grid เพื่อรองรับ PC (md:grid-cols-2 lg:grid-cols-3)
+    let html = `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4 pb-24 md:pb-6">`;
     if (displayTickets.length === 0) {
-        html += `
-            <div class="text-center text-gray-500 py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
-                <i class="fa-regular fa-folder-open text-5xl text-gray-300 mb-3"></i>
-                <p class="font-bold text-gray-600">ไม่มีรายการในหมวดหมู่นี้</p>
-            </div>
-        `;
+        html += `<div class="col-span-full text-center text-gray-500 py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300"><i class="fa-regular fa-folder-open text-5xl text-gray-300 mb-3"></i><p class="font-bold text-gray-600">${t("ไม่มีรายการในหมวดหมู่นี้")}</p></div>`;
     }
 
-    displayTickets.forEach(t => {
-        let statusColor = t.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' 
-                        : t.status === 'approved' ? 'bg-green-100 text-green-800 border-green-300' 
-                        : t.status === 'defect' ? 'bg-gray-100 text-gray-800 border-gray-300' 
+    displayTickets.forEach(tck => {
+        let statusColor = tck.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' 
+                        : tck.status === 'approved' ? 'bg-green-100 text-green-800 border-green-300' 
+                        : tck.status === 'defect' ? 'bg-gray-100 text-gray-800 border-gray-300' 
                         : 'bg-red-100 text-red-800 border-red-300';
                         
-        let statusIcon = t.status === 'pending' ? '<i class="fa-solid fa-clock"></i> รอตรวจ' 
-                       : t.status === 'approved' ? '<i class="fa-solid fa-check-circle"></i> ผ่าน' 
-                       : t.status === 'defect' ? '<i class="fa-solid fa-trash-can"></i> งานเสีย'
-                       : '<i class="fa-solid fa-times-circle"></i> ปฏิเสธ';
+        let statusIcon = tck.status === 'pending' ? `<i class="fa-solid fa-clock"></i> ${t('รอตรวจ')}` 
+                       : tck.status === 'approved' ? `<i class="fa-solid fa-check-circle"></i> ${t('ผ่าน')}` 
+                       : tck.status === 'defect' ? `<i class="fa-solid fa-trash-can"></i> ${t('งานเสีย')}`
+                       : `<i class="fa-solid fa-times-circle"></i> ${t('ปฏิเสธ')}`;
                        
-        let cleanTime = formatDisplayDate(t.timestamp).split(' ')[1] || formatDisplayDate(t.timestamp);
-        let jobDisplay = t.jobOrder.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${t.jobOrder.replace('[TEST] ', '')}` : t.jobOrder;
+        let cleanTime = formatDisplayDate(tck.timestamp).split(' ')[1] || formatDisplayDate(tck.timestamp);
+        let jobDisplay = tck.jobOrder.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${tck.jobOrder.replace('[TEST] ', '')}` : tck.jobOrder;
 
         html += `
-            <div onclick="openTicket('${t.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${t.status === 'pending' ? 'border-yellow-500' : t.status === 'approved' ? 'border-green-500' : t.status === 'defect' ? 'border-gray-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3 transition">
+            <div onclick="openTicket('${tck.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${tck.status === 'pending' ? 'border-yellow-500' : tck.status === 'approved' ? 'border-green-500' : tck.status === 'defect' ? 'border-gray-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3 transition">
                 <div class="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200 shadow-inner">
-                    <img src="${getDriveImageUrl(t.imageUrl)}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150'">
+                    <img src="${getDriveImageUrl(tck.imageUrl)}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150'">
                 </div>
                 <div class="flex-1 overflow-hidden">
                     <div class="flex justify-between items-start">
-                        <span class="font-bold ${t.status === 'defect' ? 'text-gray-800' : 'text-blue-800'} text-sm truncate pr-2">${t.status === 'defect' ? 'บันทึกงานเสีย' : jobDisplay}</span>
+                        <span class="font-bold ${tck.status === 'defect' ? 'text-gray-800' : 'text-blue-800'} text-sm truncate pr-2">${tck.status === 'defect' ? t('แจ้งปัญหาการปริ้น') : jobDisplay}</span>
                         <span class="text-[10px] px-2 py-0.5 rounded-full border ${statusColor} font-medium flex-shrink-0">${statusIcon}</span>
                     </div>
-                    <div class="text-sm font-bold text-gray-800 mt-1 truncate">${t.status === 'defect' ? `เหตุผล: ${t.rejectReason}` : `Model: ${t.model}`}</div>
+                    <div class="text-sm font-bold text-gray-800 mt-1 truncate">${tck.status === 'defect' ? `${t('เหตุผล:')} ${tck.rejectReason}` : `Model: ${tck.model}`}</div>
                     <div class="text-[10px] text-gray-500 mt-1 truncate flex items-center gap-1">
-                        <i class="fa-solid fa-user-circle"></i> ${t.operator} • ${cleanTime} ${t.batchNo ? `• <i class="fa-solid fa-print"></i> ${t.batchNo}` : ''}
+                        <i class="fa-solid fa-user-circle"></i> ${tck.operator} • ${cleanTime} ${tck.batchNo ? `• <i class="fa-solid fa-print"></i> ${tck.batchNo}` : ''}
                     </div>
                 </div>
             </div>
         `;
     });
     
+    html += `</div>`;
     return html;
 }
 
-// 🟢 อัปเดต UI หน้ากล่องข้อความแบบไม่กระพริบ
 function updateInboxListUI() {
     const listEl = document.getElementById('inbox-ticket-list');
-    if (listEl) {
-        listEl.innerHTML = getInboxListHTML();
-    }
+    if (listEl) listEl.innerHTML = getInboxListHTML();
     
-    // อัปเดตตัวเลขแจ้งเตือนในแท็บย่อยด้วย
     let baseTickets = dbTickets;
     if (currentUser.role !== 'admin') baseTickets = baseTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
     if (currentUser.role === 'operator') baseTickets = baseTickets.filter(t => t.operator === currentUser.name);
@@ -1425,10 +1422,10 @@ function updateInboxListUI() {
     if (badgesContainer) {
         badgesContainer.innerHTML = `
             <button onclick="setInboxFilter('pending')" class="flex-1 py-2 text-sm font-bold rounded-md transition flex justify-center items-center gap-1.5 ${currentInboxFilter === 'pending' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
-                รอตรวจสอบ ${pendingCount > 0 ? `<span class="${currentInboxFilter === 'pending' ? 'bg-red-500' : 'bg-gray-400'} text-white text-[10px] px-1.5 py-0.5 rounded-full">${pendingCount}</span>` : ''}
+                ${t("รอตรวจสอบ")} ${pendingCount > 0 ? `<span class="${currentInboxFilter === 'pending' ? 'bg-red-500' : 'bg-gray-400'} text-white text-[10px] px-1.5 py-0.5 rounded-full">${pendingCount}</span>` : ''}
             </button>
             <button onclick="setInboxFilter('processed')" class="flex-1 py-2 text-sm font-bold rounded-md transition flex justify-center items-center gap-1.5 ${currentInboxFilter === 'processed' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
-                ดำเนินการแล้ว ${processedCount > 0 ? `<span class="${currentInboxFilter === 'processed' ? 'bg-gray-600' : 'bg-gray-400'} text-white text-[10px] px-1.5 py-0.5 rounded-full">${processedCount}</span>` : ''}
+                ${t("ดำเนินการแล้ว")} ${processedCount > 0 ? `<span class="${currentInboxFilter === 'processed' ? 'bg-gray-600' : 'bg-gray-400'} text-white text-[10px] px-1.5 py-0.5 rounded-full">${processedCount}</span>` : ''}
             </button>
         `;
     }
@@ -1436,43 +1433,43 @@ function updateInboxListUI() {
 
 function renderInboxView(container) {
     let html = `
-        <div class="max-w-2xl mx-auto flex flex-col h-full fade-in">
-            <div class="bg-white px-4 pt-4 pb-2 shadow-sm z-10 sticky top-0">
+        <div class="max-w-6xl mx-auto flex flex-col h-full fade-in p-0 md:p-2">
+            <div class="bg-white px-4 pt-4 pb-2 shadow-sm md:rounded-xl md:mb-4 z-10 sticky top-0">
                 <h2 class="font-bold text-gray-800 text-lg mb-3 flex items-center">
-                    <i class="fa-solid fa-envelope-open-text text-blue-500 mr-2 text-xl"></i> กล่องข้อความ
+                    <i class="fa-solid fa-envelope-open-text text-blue-500 mr-2 text-xl"></i> ${t("กล่องข้อความ")}
                 </h2>
                 
-                <div class="flex gap-2 mb-3">
-                    <div class="flex-1">
-                        <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">ตั้งแต่วันที่</label>
-                        <input type="date" id="inbox-start-date" value="${inboxStartDate}" onchange="executeInboxDateFilter()" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+                <div class="flex flex-col md:flex-row gap-2 md:gap-4 mb-3">
+                    <div class="flex flex-1 gap-2">
+                        <div class="flex-1">
+                            <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">${t("ตั้งแต่วันที่")}</label>
+                            <input type="date" id="inbox-start-date" value="${inboxStartDate}" onchange="executeInboxDateFilter()" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">${t("ถึงวันที่")}</label>
+                            <input type="date" id="inbox-end-date" value="${inboxEndDate}" onchange="executeInboxDateFilter()" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
                     </div>
-                    <div class="flex-1">
-                        <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">ถึงวันที่</label>
-                        <input type="date" id="inbox-end-date" value="${inboxEndDate}" onchange="executeInboxDateFilter()" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    <div class="relative flex-1 flex gap-2 items-end">
+                        <div class="relative flex-1">
+                            <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400"></i>
+                            <input type="text" id="inbox-search-input" placeholder="${t("ค้นหา Job, Model, Lot...")}" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition h-[34px]" value="${inboxSearchTerm}" onkeypress="if(event.key === 'Enter') executeInboxSearch()">
+                        </div>
+                        <button onclick="executeInboxSearch()" class="bg-gray-800 text-white px-4 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-700 transition h-[34px]">${t("ค้นหา")}</button>
                     </div>
                 </div>
                 
-                <div class="relative flex gap-2 mb-3">
-                    <div class="relative flex-1">
-                        <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
-                        <input type="text" id="inbox-search-input" placeholder="ค้นหา Job, Model, Lot..." class="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition" value="${inboxSearchTerm}" onkeypress="if(event.key === 'Enter') executeInboxSearch()">
-                    </div>
-                    <button onclick="executeInboxSearch()" class="bg-gray-800 text-white px-4 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-700 transition">ค้นหา</button>
-                </div>
-                
-                <div id="inbox-filter-badges" class="flex bg-gray-100 p-1 rounded-lg">
+                <div id="inbox-filter-badges" class="flex bg-gray-100 p-1 rounded-lg w-full max-w-sm">
                     <!-- โหลดแท็บจากอัปเดตอัตโนมัติ -->
                 </div>
             </div>
-            <div id="inbox-ticket-list" class="flex-1 overflow-y-auto p-4 space-y-3 pb-24">
+            <div id="inbox-ticket-list" class="flex-1 overflow-y-auto p-4 pt-2">
                 <!-- โหลดรายการจากอัปเดตอัตโนมัติ -->
             </div>
         </div>
     `;
-    
     container.innerHTML = html;
-    updateInboxListUI(); // วาดข้อมูลรายการใส่ลงไป
+    updateInboxListUI(); 
 }
 
 function openTicket(id) { 
@@ -1493,14 +1490,14 @@ function executeProcessTicket(action, reason = "") {
     .then(res => res.json())
     .then(res => { 
         if(res.success) { 
-            showCustomAlert(`บันทึกสถานะเรียบร้อย`, true); 
+            showCustomAlert(t("บันทึกสถานะเรียบร้อย"), true); 
             fetchPeriodicData(true); 
             closeTicket(); 
         } else {
             throw new Error(res.error); 
         }
     })
-    .catch(err => showCustomAlert("เกิดข้อผิดพลาดในการอัปเดตสถานะ API: " + err.message));
+    .catch(err => showCustomAlert((currentLang==='EN'?"Error: ":"เกิดข้อผิดพลาดในการอัปเดตสถานะ API: ") + err.message));
 }
 
 function processTicket(action) {
@@ -1509,82 +1506,78 @@ function processTicket(action) {
     } else {
         const actionContainer = document.getElementById('qc-action-buttons');
         if(actionContainer) {
-            actionContainer.innerHTML = `
-                <div class="w-full text-center py-3 text-blue-600 font-bold bg-blue-50 rounded-lg">
-                    <div class="loader loader-blue mb-2"></div> กำลังอัปโหลดข้อมูลสู่ Cloud...
-                </div>
-            `;
+            actionContainer.innerHTML = `<div class="w-full text-center py-3 text-blue-600 font-bold bg-blue-50 rounded-lg"><div class="loader loader-blue mb-2"></div> ${t("กำลังอัปโหลดข้อมูลสู่ Cloud...")}</div>`;
         }
         executeProcessTicket(action);
     }
 }
 
 function renderTicketDetail(container) {
-    let t = selectedTicket;
-    let statusColor = t.status === 'pending' ? 'text-yellow-600' : t.status === 'approved' ? 'text-green-600' : t.status === 'defect' ? 'text-gray-600' : 'text-red-600';
-    let canApprove = (currentUser.role === 'qc' || currentUser.role === 'admin' || currentUser.role === 'supervisor') && t.status === 'pending';
-    let jobDisplay = t.jobOrder.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${t.jobOrder.replace('[TEST] ', '')}` : t.jobOrder;
+    let tck = selectedTicket;
+    let statusColor = tck.status === 'pending' ? 'text-yellow-600' : tck.status === 'approved' ? 'text-green-600' : tck.status === 'defect' ? 'text-gray-600' : 'text-red-600';
+    let canApprove = (currentUser.role === 'qc' || currentUser.role === 'admin' || currentUser.role === 'supervisor') && tck.status === 'pending';
+    let jobDisplay = tck.jobOrder.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${tck.jobOrder.replace('[TEST] ', '')}` : tck.jobOrder;
 
     container.innerHTML = `
         <div class="max-w-2xl mx-auto fade-in pb-20 p-4">
             <button onclick="closeTicket()" class="mb-4 text-blue-600 hover:text-blue-800 font-medium">
-                <i class="fa-solid fa-arrow-left mr-1"></i> ย้อนกลับ
+                <i class="fa-solid fa-arrow-left mr-1"></i> ${t("ย้อนกลับ")}
             </button>
             <div class="bg-white rounded-xl shadow-md overflow-hidden">
                 <div class="p-4 border-b flex justify-between items-center bg-gray-50">
                     <div class="overflow-hidden pr-2">
-                        <h2 class="font-bold text-lg ${t.status === 'defect' ? 'text-gray-800' : 'text-blue-800'} truncate">${t.status === 'defect' ? 'บันทึกงานเสีย' : jobDisplay}</h2>
-                        <span class="text-[10px] text-gray-500 font-mono">Ref: ${t.id} ${t.batchNo ? `| Batch: ${t.batchNo}` : ''}</span>
+                        <h2 class="font-bold text-lg ${tck.status === 'defect' ? 'text-gray-800' : 'text-blue-800'} truncate">${tck.status === 'defect' ? t('แจ้งปัญหาการปริ้น') : jobDisplay}</h2>
+                        <span class="text-[10px] text-gray-500 font-mono">Ref: ${tck.id} ${tck.batchNo ? `| Batch: ${tck.batchNo}` : ''}</span>
                     </div>
-                    <span class="font-bold ${statusColor} uppercase text-sm flex-shrink-0">${t.status}</span>
+                    <span class="font-bold ${statusColor} uppercase text-sm flex-shrink-0">${t(tck.status === 'pending' ? 'รอตรวจ' : tck.status === 'approved' ? 'ผ่าน' : tck.status === 'defect' ? 'งานเสีย' : 'ปฏิเสธ')}</span>
                 </div>
                 
-                <div class="p-4 bg-black flex justify-center relative cursor-pointer" onclick="showImageModal('${t.imageUrl ? getDriveImageUrl(t.imageUrl, 'w1920') : ''}')" title="คลิกเพื่อขยายรูปภาพ">
+                <div class="p-4 bg-black flex justify-center relative cursor-pointer" onclick="showImageModal('${tck.imageUrl ? getDriveImageUrl(tck.imageUrl, 'w1920') : ''}')" title="คลิกเพื่อขยายรูปภาพ">
                     <div class="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs backdrop-blur-sm pointer-events-none z-10">
-                        <i class="fa-solid fa-magnifying-glass-plus"></i> ขยาย
+                        <i class="fa-solid fa-magnifying-glass-plus"></i> ${t("ขยาย")}
                     </div>
-                    <img src="${getDriveImageUrl(t.imageUrl)}" class="max-h-80 object-contain rounded border border-gray-700 pointer-events-none" onerror="this.src='https://via.placeholder.com/400x300?text=Image+Not+Found'">
+                    <img src="${getDriveImageUrl(tck.imageUrl)}" class="max-h-80 object-contain rounded border border-gray-700 pointer-events-none" onerror="this.src='https://via.placeholder.com/400x300?text=Image+Not+Found'">
                 </div>
                 
                 <div class="p-5 space-y-4">
-                    ${t.status === 'defect' ? '' : `
+                    ${tck.status === 'defect' ? '' : `
                     <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                        <h3 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1">ข้อมูลที่สกัดได้จากฉลาก</h3>
+                        <h3 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1">${t("ข้อมูลที่สกัดได้จากฉลาก")}</h3>
                         <div class="grid grid-cols-3 gap-2 text-sm">
-                            <div class="text-gray-500">Model:</div><div class="col-span-2 font-bold text-gray-800">${t.model}</div>
-                            <div class="text-gray-500 mt-1">Lot No:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.lot}</div>
-                            <div class="text-gray-500 mt-1">วันที่ผลิต:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.date}</div>
-                            <div class="text-gray-500 mt-1">จำนวน:</div><div class="col-span-2 font-bold text-blue-700 mt-1">${t.qty || '-'}</div>
+                            <div class="text-gray-500">Model:</div><div class="col-span-2 font-bold text-gray-800">${tck.model}</div>
+                            <div class="text-gray-500 mt-1">Lot No:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${tck.lot}</div>
+                            <div class="text-gray-500 mt-1">${t("วันที่ผลิต")}:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${tck.date}</div>
+                            <div class="text-gray-500 mt-1">${t("จำนวน:")}</div><div class="col-span-2 font-bold text-blue-700 mt-1">${tck.qty || '-'}</div>
                         </div>
                     </div>`}
                     
                     <div class="grid grid-cols-2 gap-4 text-xs text-gray-500 border-t pt-4">
-                        <div><span class="block font-bold text-gray-700">ส่งเรื่อง (OP):</span>${t.operator} <br> ${formatDisplayDate(t.timestamp)}</div>
-                        ${t.status !== 'pending' && t.status !== 'defect' ? `<div><span class="block font-bold text-gray-700">ตรวจสอบ (QC):</span>${t.qc} <br> ${formatDisplayDate(t.actionTime)}</div>` : ''}
-                        ${t.status === 'defect' ? `<div><span class="block font-bold text-gray-700">จำนวนที่เสีย:</span><span class="text-red-600 font-bold text-sm">${t.qty} ดวง</span></div>` : ''}
+                        <div><span class="block font-bold text-gray-700">${t("ส่งเรื่อง (OP):")}</span>${tck.operator} <br> ${formatDisplayDate(tck.timestamp)}</div>
+                        ${tck.status !== 'pending' && tck.status !== 'defect' ? `<div><span class="block font-bold text-gray-700">${t("ตรวจสอบ (QC):")}</span>${tck.qc} <br> ${formatDisplayDate(tck.actionTime)}</div>` : ''}
+                        ${tck.status === 'defect' ? `<div><span class="block font-bold text-gray-700">${t("จำนวนที่เสีย:")}</span><span class="text-red-600 font-bold text-sm">${tck.qty} ${t("ดวง")}</span></div>` : ''}
                     </div>
                     
-                    ${t.status === 'defect' ? `
+                    ${tck.status === 'defect' ? `
                         <div class="bg-gray-100 text-gray-700 p-3 rounded border border-gray-300 text-sm mt-3">
-                            <strong>สาเหตุที่ปริ้นเสีย:</strong> ${t.rejectReason}
+                            <strong>${t("สาเหตุที่ปริ้นเสีย:")}</strong> ${tck.rejectReason}
                         </div>
-                    ` : (t.rejectReason ? `
+                    ` : (tck.rejectReason ? `
                         <div class="bg-red-50 text-red-700 p-3 rounded border border-red-200 text-sm mt-3">
-                            <strong>สาเหตุที่ปฏิเสธ:</strong> ${t.rejectReason}
+                            <strong>${t("สาเหตุที่ปฏิเสธ:")}</strong> ${tck.rejectReason}
                         </div>
                     ` : '')}
                     
                     ${canApprove ? `
                         <div class="flex flex-col pt-4 border-t mt-4">
                             <div class="text-center text-xs text-gray-500 mb-3 bg-gray-100 p-2 rounded">
-                                คุณกำลังจะตรวจสอบเอกสารนี้ในชื่อ <strong>${currentUser.name}</strong>
+                                ${currentLang === 'EN' ? `You are approving this as <strong>${currentUser.name}</strong>` : `คุณกำลังจะตรวจสอบเอกสารนี้ในชื่อ <strong>${currentUser.name}</strong>`}
                             </div>
                             <div id="qc-action-buttons" class="flex gap-3">
                                 <button onclick="processTicket('approved')" class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2">
-                                    <i class="fa-solid fa-check-circle"></i> อนุมัติ (PASS)
+                                    <i class="fa-solid fa-check-circle"></i> ${t("อนุมัติ (PASS)")}
                                 </button>
                                 <button onclick="processTicket('rejected')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2">
-                                    <i class="fa-solid fa-times-circle"></i> ปฏิเสธ (NG)
+                                    <i class="fa-solid fa-times-circle"></i> ${t("ปฏิเสธ (NG)")}
                                 </button>
                             </div>
                         </div>
@@ -1599,10 +1592,8 @@ function renderTicketDetail(container) {
 // START APP & AUTH CHECK
 // ==========================================
 function initApp() {
-    // 🟢 เช็คสถานะโหมดปิดปรับปรุง
     if (typeof IS_MAINTENANCE_MODE !== 'undefined' && IS_MAINTENANCE_MODE) {
-        render();
-        return;
+        render(); return;
     }
 
     const savedUser = localStorage.getItem('qc_app_user');
@@ -1612,14 +1603,8 @@ function initApp() {
             if (!currentUser || !currentUser.role) throw new Error("Invalid Session Data");
             
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
-            requestNotificationPermission(); 
-            fetchInitialData(); 
-            startAutoFetch(); 
-            
-        } catch (e) { 
-            localStorage.removeItem('qc_app_user'); 
-            currentUser = null; 
-        }
+            requestNotificationPermission(); fetchInitialData(); startAutoFetch(); 
+        } catch (e) { localStorage.removeItem('qc_app_user'); currentUser = null; }
     }
     render();
 }
