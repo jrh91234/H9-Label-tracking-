@@ -33,6 +33,7 @@ const EN_DICT = {
     "บันทึก": "Save",
     "สแกน Label": "Scan Label",
     "กล่องข้อความ": "Inbox",
+    "แดชบอร์ด": "Dashboard",
     "จัดการผู้ใช้": "Manage Users",
     "เตรียมการสแกน": "Prepare Scan",
     "เลือก Job Order": "Select Job Order",
@@ -117,7 +118,11 @@ const EN_DICT = {
     "ไม่มีรายการในระบบ": "No items in system",
     "AI กำลังอ่านข้อความ...": "AI is extracting text...",
     "ระบบกำลังสกัดข้อมูลจากรูปภาพ<br>และคำนวณตรวจสอบความถูกต้อง": "Extracting data from image<br>and calculating accuracy...",
-    "กำลังอัปโหลดข้อมูลสู่ Cloud...": "Uploading data to Cloud..."
+    "กำลังอัปโหลดข้อมูลสู่ Cloud...": "Uploading data to Cloud...",
+    "ภาพรวมการผลิตวันนี้": "Today's Production Overview",
+    "ยอดปริ้นทั้งหมด": "Total Printed",
+    "ความคืบหน้าแต่ละ Job Order": "Progress by Job Order",
+    "เป้าหมาย:": "Target:"
 };
 
 function t(text) {
@@ -147,13 +152,17 @@ function updateBadgeAndNotify(tickets) {
     
     let pendingTickets = tickets.filter(t => t.status === 'pending');
     
-    if (currentUser.role !== 'admin') pendingTickets = pendingTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
-    if (currentUser.role === 'operator') pendingTickets = pendingTickets.filter(t => t.operator === currentUser.name);
+    if (currentUser.role !== 'admin') {
+        pendingTickets = pendingTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
+    }
+    
+    if (currentUser.role === 'operator') {
+        pendingTickets = pendingTickets.filter(t => t.operator === currentUser.name);
+    }
 
     const pendingCount = pendingTickets.length;
     const badgeHtml = `<span class="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-sm">${pendingCount}</span>`;
     
-    // อัปเดตตัวเลขแจ้งเตือนสำหรับ Mobile Bottom Nav และ PC Sidebar
     const navBadgeContainer = document.getElementById('nav-inbox-badge-container');
     const sidebarBadgeContainer = document.getElementById('sidebar-inbox-badge-container');
     
@@ -449,7 +458,7 @@ function handleLogin() {
         if (res.success) { 
             currentUser = res.data; currentUser.username = user; 
             localStorage.setItem('qc_app_user', JSON.stringify(currentUser)); 
-            currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox'; 
+            currentTab = 'dashboard'; // 🟢 เปลี่ยนหน้าเริ่มต้นเป็น Dashboard 
             currentSelectedJob = null; currentSelectedBatch = null; isDefectMode = false; 
             fetchInitialData(); startAutoFetch(); render(); 
         } else { 
@@ -504,7 +513,11 @@ function fetchInitialData() {
         fetch(`${API_URL}?action=getBatches`).then(res => res.json()).catch(() => [])
     ]).then(([jobsData, batchesData]) => {
         dbJobs = jobsData || []; dbBatches = batchesData || []; isLoadingJobs = false;
-        if (currentTab === 'scan' && !currentSelectedJob && !isDefectMode) renderMainApp();
+        
+        // 🟢 รีเฟรชหน้าเฉพาะเมื่ออยู่ที่หน้าสแกน หรือ แดชบอร์ด
+        if ((currentTab === 'scan' && !currentSelectedJob && !isDefectMode) || currentTab === 'dashboard') {
+            renderMainApp();
+        }
     });
     fetchTickets();
 }
@@ -512,7 +525,7 @@ function fetchInitialData() {
 function fetchTickets() {
     fetch(`${API_URL}?action=getTickets`).then(res => res.json()).then(data => {
         dbTickets = data || []; updateBadgeAndNotify(dbTickets); 
-        if(currentTab === 'inbox') renderMainApp();
+        if(currentTab === 'inbox' || currentTab === 'dashboard') renderMainApp();
     }).catch(err => console.error("Error fetching inbox: ", err));
 }
 
@@ -548,6 +561,7 @@ function fetchPeriodicData(forceRender = false) {
         if (forceRender) renderMainApp();
         else {
             if (ticketsChanged && currentTab === 'inbox') updateInboxListUI(); 
+            if (ticketsChanged && currentTab === 'dashboard') renderMainApp(); // 🟢 อัปเดต Dashboard
             if (batchesChanged && currentTab === 'scan' && !currentSelectedJob && !isDefectMode) updateBatchDropdownUI();
         }
     }).catch(err => console.error("Error fetching periodic data: ", err));
@@ -574,7 +588,6 @@ function switchTab(tab) {
 function renderMainApp() {
     const appDiv = document.getElementById('app');
     
-    // 🟢 โครงสร้างแบบ Responsive: มือถือโชว์แถบล่าง / PC โชว์ Sidebar ซ้ายมือ
     const isFullscreenCamera = currentTab === 'scan' && (currentSelectedJob || isDefectMode) && !capturedImageBase64 && !isProcessingOCR;
 
     if (isFullscreenCamera) {
@@ -595,6 +608,10 @@ function renderMainApp() {
                             <div class="text-[10px] text-blue-600 uppercase font-bold tracking-wider mt-1">${currentUser.role}</div>
                         </div>
                         <nav class="space-y-2">
+                            <!-- 🟢 เพิ่มปุ่ม Dashboard ใน Sidebar -->
+                            <button onclick="switchTab('dashboard')" class="w-full flex items-center gap-3 p-3 rounded-lg font-bold transition ${currentTab === 'dashboard' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}">
+                                <i class="fa-solid fa-chart-pie w-5 text-center text-lg"></i> ${t("แดชบอร์ด")}
+                            </button>
                             ${(currentUser.role === 'operator' || currentUser.role === 'admin') ? `
                             <button onclick="switchTab('scan')" class="w-full flex items-center gap-3 p-3 rounded-lg font-bold transition ${currentTab === 'scan' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'}">
                                 <i class="fa-solid fa-camera w-5 text-center text-lg"></i> ${t("สแกน Label")}
@@ -625,7 +642,7 @@ function renderMainApp() {
                 <!-- 📱 Main Content Area -->
                 <div class="flex-1 flex flex-col relative h-full overflow-hidden">
                     
-                    <!-- Mobile Header (Hidden on PC) -->
+                    <!-- Mobile Header -->
                     <header class="md:hidden bg-white shadow-sm z-20 px-4 py-3 flex justify-between items-center">
                         <div class="flex items-center">
                             <i class="fa-solid fa-shield-check text-blue-600 text-xl mr-2"></i>
@@ -646,8 +663,12 @@ function renderMainApp() {
                     <!-- Inner Scrollable Main -->
                     <main class="flex-1 overflow-y-auto relative p-0 md:p-6" id="main-content"></main>
 
-                    <!-- Mobile Bottom Nav (Hidden on PC) -->
+                    <!-- 🟢 Mobile Bottom Nav อัปเดตไอคอน Dashboard -->
                     <nav class="md:hidden bg-white border-t flex justify-around p-2 pb-safe z-20">
+                        <button onclick="switchTab('dashboard')" class="flex flex-col items-center p-2 w-full ${currentTab === 'dashboard' ? 'text-blue-600' : 'text-gray-400'}">
+                            <i class="fa-solid fa-chart-pie text-xl mb-1"></i>
+                            <span class="text-[10px] font-medium mt-1">${t("แดชบอร์ด")}</span>
+                        </button>
                         ${(currentUser.role === 'operator' || currentUser.role === 'admin') ? `
                             <button onclick="switchTab('scan')" class="flex flex-col items-center p-2 w-full ${currentTab === 'scan' ? 'text-blue-600' : 'text-gray-400'}">
                                 <i class="fa-solid fa-camera text-xl mb-1"></i>
@@ -680,9 +701,139 @@ function renderMainApp() {
 function renderContent() {
     const contentDiv = document.getElementById('main-content');
     if (selectedTicket) renderTicketDetail(contentDiv);
+    else if (currentTab === 'dashboard') renderDashboardView(contentDiv); // 🟢 เพิ่ม Render Dashboard
     else if (currentTab === 'scan') renderScanView(contentDiv);
     else if (currentTab === 'inbox') renderInboxView(contentDiv);
     else if (currentTab === 'admin') renderAdminView(contentDiv);
+}
+
+// ==========================================
+// 🟢 DASHBOARD VIEW (หน้าจอภาพรวม)
+// ==========================================
+function renderDashboardView(container) {
+    if (isLoadingJobs) {
+        container.innerHTML = `<div class="flex flex-col justify-center items-center h-full"><div class="loader loader-blue loader-large mb-4"></div><p class="text-gray-500 font-bold">${t("⏳ กำลังโหลดแผนจาก API...")}</p></div>`;
+        return;
+    }
+
+    const todayStr = getTodayDateString();
+    
+    // คัดกรอง Ticket เฉพาะของวันนี้
+    const todayTickets = dbTickets.filter(t => {
+        const tDate = parseTicketDate(t.timestamp);
+        return tDate === todayStr && t.status !== 'rejected'; // ไม่นับใบที่ถูก Reject กลับ
+    });
+
+    let totalPrinted = 0;
+    let totalDefect = 0;
+
+    // โครงสร้างรวบรวมข้อมูลราย Job
+    const jobStats = {};
+    
+    // ตั้งต้นโครงสร้างจาก Job ที่มาจากแผน (dbJobs)
+    dbJobs.forEach(j => {
+        jobStats[j.job] = {
+            model: j.targetModel,
+            targetQty: j.targetQty || 0,
+            actualQty: 0
+        };
+    });
+
+    // นำ Ticket วันนี้มาบวกยอดเข้าแต่ละ Job
+    todayTickets.forEach(tck => {
+        const qty = parseInt(tck.qty) || 0;
+        
+        if (tck.status === 'defect') {
+            totalDefect += qty;
+        } else {
+            totalPrinted += qty;
+            
+            // ถ้ายอดเป็นของ Job ปัจจุบัน หรือ Job อื่นๆ ที่ถูกปริ้นวันนี้
+            const jobKey = tck.jobOrder.replace('[TEST] ', ''); // ตัด Test ออกเพื่อให้บวกยอดถูก
+            
+            if (jobStats[jobKey]) {
+                jobStats[jobKey].actualQty += qty;
+            } else if (jobKey !== 'DEFECT') {
+                // กรณีเป็น Job ที่ปริ้นวันนี้ แต่ไม่ได้อยู่ในคิว Plan (อาจจะปริ้นซ่อม)
+                jobStats[jobKey] = {
+                    model: tck.model,
+                    targetQty: 0,
+                    actualQty: qty
+                };
+            }
+        }
+    });
+
+    // สร้าง Card HTML สำหรับแต่ละ Job
+    let jobCardsHTML = '';
+    const jobKeys = Object.keys(jobStats);
+    
+    if (jobKeys.length === 0) {
+        jobCardsHTML = `<div class="col-span-full text-center text-gray-500 py-8 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">${t("ไม่มีรายการในระบบ")}</div>`;
+    } else {
+        jobKeys.forEach(key => {
+            const stat = jobStats[key];
+            const target = stat.targetQty;
+            const actual = stat.actualQty;
+            
+            let percent = target > 0 ? Math.floor((actual / target) * 100) : (actual > 0 ? 100 : 0);
+            let barWidth = percent > 100 ? 100 : percent;
+            
+            let barColor = 'bg-blue-500';
+            if (percent >= 100) barColor = 'bg-green-500';
+            if (actual === 0) barColor = 'bg-gray-300';
+
+            jobCardsHTML += `
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h4 class="font-bold text-gray-800 text-base">${key}</h4>
+                            <div class="text-[10px] text-gray-500 font-bold uppercase tracking-wider">${stat.model}</div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-2xl font-black ${percent >= 100 ? 'text-green-600' : 'text-blue-600'}">${actual}</span>
+                            <span class="text-xs text-gray-500 block -mt-1">${t("เป้าหมาย:")} ${target > 0 ? target : '-'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1 relative overflow-hidden">
+                        <div class="${barColor} h-2.5 rounded-full transition-all duration-500" style="width: ${barWidth}%"></div>
+                    </div>
+                    <div class="text-right text-[10px] font-bold ${percent >= 100 ? 'text-green-600' : 'text-gray-500'}">
+                        ${percent}%
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    container.innerHTML = `
+        <div class="max-w-6xl mx-auto fade-in p-4 md:p-2 pb-24 md:pb-6">
+            <h2 class="font-bold text-gray-800 text-xl mb-4 flex items-center">
+                <i class="fa-solid fa-chart-pie text-blue-500 mr-2"></i> ${t("ภาพรวมการผลิตวันนี้")}
+            </h2>
+            
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
+                    <div class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">${t("ยอดปริ้นทั้งหมด")}</div>
+                    <div class="text-3xl font-black text-blue-700">${totalPrinted} <span class="text-sm font-normal text-gray-500">pcs</span></div>
+                </div>
+                <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border-l-4 border-red-500">
+                    <div class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">${t("งานเสีย (Defect)")}</div>
+                    <div class="text-3xl font-black text-red-600">${totalDefect} <span class="text-sm font-normal text-gray-500">pcs</span></div>
+                </div>
+            </div>
+            
+            <h3 class="font-bold text-gray-700 mb-3 flex items-center">
+                <i class="fa-solid fa-bars-progress mr-2 text-gray-400"></i> ${t("ความคืบหน้าแต่ละ Job Order")}
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                ${jobCardsHTML}
+            </div>
+        </div>
+    `;
 }
 
 // ==========================================
@@ -1356,7 +1507,6 @@ function getInboxListHTML() {
     
     displayTickets.sort((a, b) => b.id.localeCompare(a.id));
 
-    // 🟢 วาง Layout เป็น Grid เพื่อรองรับ PC (md:grid-cols-2 lg:grid-cols-3)
     let html = `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4 pb-24 md:pb-6">`;
     if (displayTickets.length === 0) {
         html += `<div class="col-span-full text-center text-gray-500 py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300"><i class="fa-regular fa-folder-open text-5xl text-gray-300 mb-3"></i><p class="font-bold text-gray-600">${t("ไม่มีรายการในหมวดหมู่นี้")}</p></div>`;
@@ -1602,9 +1752,16 @@ function initApp() {
             currentUser = JSON.parse(savedUser);
             if (!currentUser || !currentUser.role) throw new Error("Invalid Session Data");
             
-            currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
-            requestNotificationPermission(); fetchInitialData(); startAutoFetch(); 
-        } catch (e) { localStorage.removeItem('qc_app_user'); currentUser = null; }
+            // เปลี่ยนหน้าเริ่มต้นเป็น Dashboard
+            currentTab = 'dashboard'; 
+            requestNotificationPermission(); 
+            fetchInitialData(); 
+            startAutoFetch(); 
+            
+        } catch (e) { 
+            localStorage.removeItem('qc_app_user'); 
+            currentUser = null; 
+        }
     }
     render();
 }
