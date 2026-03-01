@@ -11,21 +11,20 @@ function requestNotificationPermission() {
 
 function updateBadgeAndNotify(tickets) {
     if (!currentUser) return;
-
+    
     let pendingTickets = tickets.filter(t => t.status === 'pending');
     
     // 🛡️ ซ่อนรายการทดสอบสำหรับคนที่ไม่ใช่ Admin
     if (currentUser.role !== 'admin') {
         pendingTickets = pendingTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
     }
-
+    
     if (currentUser.role === 'operator') {
         pendingTickets = pendingTickets.filter(t => t.operator === currentUser.name);
     }
 
     const pendingCount = pendingTickets.length;
-
-    // อัปเดตตัวเลขแจ้งเตือนบนไอคอนแอป (App Badge)
+    
     if ('setAppBadge' in navigator) {
         if (pendingCount > 0) {
             navigator.setAppBadge(pendingCount).catch(e => console.log(e));
@@ -34,7 +33,6 @@ function updateBadgeAndNotify(tickets) {
         }
     }
 
-    // เด้ง Push Notification เมื่อมีรายการสแกนเสร็จใหม่
     const storedCount = parseInt(localStorage.getItem('qc_pending_count') || '0');
     if (pendingCount > storedCount && currentUser.role !== 'operator') {
         const newItemsCount = pendingCount - storedCount;
@@ -45,20 +43,18 @@ function updateBadgeAndNotify(tickets) {
             });
         }
     }
-    
     localStorage.setItem('qc_pending_count', pendingCount.toString());
 }
 
 function startAutoFetch() {
     if (autoFetchInterval) clearInterval(autoFetchInterval);
-    // รีเฟรชอัตโนมัติ ทุกๆ 30 วินาที
     autoFetchInterval = setInterval(() => { 
         if (currentUser) fetchPeriodicData(false); 
     }, 30000); 
 }
 
-function stopAutoFetch() {
-    if (autoFetchInterval) clearInterval(autoFetchInterval);
+function stopAutoFetch() { 
+    if (autoFetchInterval) clearInterval(autoFetchInterval); 
 }
 
 // ==========================================
@@ -77,7 +73,8 @@ function showCustomAlert(message, isSuccess = false) {
                 <p class="text-gray-800 mb-6 font-medium">${message}</p>
                 <button onclick="document.getElementById('${id}').remove()" class="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold w-full">ตกลง</button>
             </div>
-        </div>`;
+        </div>
+    `;
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
@@ -85,14 +82,17 @@ function showRejectPrompt() {
     const html = `
         <div id="reject-modal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 fade-in">
             <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
-                <h3 class="font-bold text-red-600 mb-2"><i class="fa-solid fa-triangle-exclamation"></i> ระบุสาเหตุที่ปฏิเสธ (NG)</h3>
+                <h3 class="font-bold text-red-600 mb-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i> ระบุสาเหตุที่ปฏิเสธ (NG)
+                </h3>
                 <input type="text" id="reject-reason" class="w-full border-2 p-3 rounded-lg mb-4 outline-none focus:border-red-500" placeholder="เช่น รูปไม่ชัด, Lot ผิด...">
                 <div class="flex gap-2">
                     <button onclick="document.getElementById('reject-modal').remove()" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold">ยกเลิก</button>
                     <button onclick="confirmReject()" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold">ยืนยันปฏิเสธ</button>
                 </div>
             </div>
-        </div>`;
+        </div>
+    `;
     document.body.insertAdjacentHTML('beforeend', html);
     setTimeout(() => document.getElementById('reject-reason').focus(), 100);
 }
@@ -109,7 +109,9 @@ function showChangePasswordModal() {
     const html = `
         <div id="change-password-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4 fade-in">
             <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm">
-                <h3 class="font-bold text-blue-600 mb-4 text-xl border-b pb-2"><i class="fa-solid fa-key mr-2"></i>เปลี่ยนรหัสผ่าน</h3>
+                <h3 class="font-bold text-blue-600 mb-4 text-xl border-b pb-2">
+                    <i class="fa-solid fa-key mr-2"></i>เปลี่ยนรหัสผ่าน
+                </h3>
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">รหัสผ่านใหม่ <span class="text-red-500">*</span></label>
@@ -122,10 +124,13 @@ function showChangePasswordModal() {
                 </div>
                 <div class="flex gap-3 mt-6">
                     <button onclick="document.getElementById('change-password-modal').remove()" class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold transition">ยกเลิก</button>
-                    <button onclick="executeChangePassword()" id="btn-change-password" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition shadow-md flex justify-center items-center gap-2"><i class="fa-solid fa-save"></i> บันทึก</button>
+                    <button onclick="executeChangePassword()" id="btn-change-password" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition shadow-md flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-save"></i> บันทึก
+                    </button>
                 </div>
             </div>
-        </div>`;
+        </div>
+    `;
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
@@ -168,7 +173,7 @@ function exportTicketsToCSV() {
     const headers = [
         "Ticket ID", "Job Order", "Model", "Lot No", "วันที่ผลิต", 
         "จำนวน (Qty)", "ผู้สแกน (OP)", "สถานะ", "ผู้ตรวจ (QC)", 
-        "เวลาแจ้งเรื่อง", "เวลาอนุมัติ", "เหตุผลไม่อนุมัติ", "ลิงก์รูปภาพ"
+        "เวลาแจ้งเรื่อง", "เวลาอนุมัติ", "เหตุผล", "ลิงก์รูปภาพ"
     ];
     csvContent += headers.join(",") + "\n";
     
@@ -176,10 +181,19 @@ function exportTicketsToCSV() {
         let cleanTime = formatDisplayDate(t.timestamp); 
         let cleanActionTime = formatDisplayDate(t.actionTime);
         let row = [
-            `"${t.id}"`, `"${t.jobOrder}"`, `"${t.model}"`, `"${t.lot}"`, 
-            `"${t.date}"`, `"${t.qty || '-'}"`, `"${t.operator}"`, `"${t.status}"`, 
-            `"${t.qc || '-'}"`, `"${cleanTime}"`, `"${cleanActionTime}"`, 
-            `"${t.rejectReason || '-'}"`, `"${t.imageUrl || '-'}"`
+            `"${t.id}"`, 
+            `"${t.jobOrder}"`, 
+            `"${t.model}"`, 
+            `"${t.lot}"`, 
+            `"${t.date}"`, 
+            `"${t.qty || '-'}"`, 
+            `"${t.operator}"`, 
+            `"${t.status}"`, 
+            `"${t.qc || '-'}"`, 
+            `"${cleanTime}"`, 
+            `"${cleanActionTime}"`, 
+            `"${t.rejectReason || '-'}"`, 
+            `"${t.imageUrl || '-'}"`
         ];
         csvContent += row.join(",") + "\n";
     });
@@ -205,7 +219,8 @@ function showImageModal(imageUrl) {
                     <i class="fa-solid fa-xmark text-xl"></i>
                 </button>
             </div>
-        </div>`;
+        </div>
+    `;
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
@@ -218,25 +233,22 @@ function getDriveImageUrl(url, size = 'w800') {
     return url;
 }
 
-function formatDisplayDate(dateStr) {
-    if (!dateStr) return '';
-    return String(dateStr).replace('T', ' ').replace('.000Z', '');
+function formatDisplayDate(dateStr) { 
+    if (!dateStr) return ''; 
+    return String(dateStr).replace('T', ' ').replace('.000Z', ''); 
 }
 
-function getTodayDateString() {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+function getTodayDateString() { 
+    const today = new Date(); 
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`; 
 }
 
 function parseTicketDate(timestampStr) {
     if (!timestampStr) return null;
-    if (timestampStr.includes('/')) {
-        const parts = timestampStr.split(' ')[0].split('/');
+    if (timestampStr.includes('/')) { 
+        const parts = timestampStr.split(' ')[0].split('/'); 
         if (parts.length === 3) {
-            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`; 
         }
     } else if (timestampStr.includes('-')) {
         return timestampStr.split('T')[0];
@@ -287,7 +299,7 @@ function renderLogin() {
 }
 
 function handleLogin() {
-    const user = document.getElementById('login-username').value.trim();
+    const user = document.getElementById('login-username').value.trim(); 
     const pass = document.getElementById('login-password').value.trim();
     
     if (!user || !pass) return showCustomAlert("กรุณากรอก Username และ Password ให้ครบถ้วน");
@@ -308,9 +320,12 @@ function handleLogin() {
             currentUser = res.data; 
             currentUser.username = user; 
             localStorage.setItem('qc_app_user', JSON.stringify(currentUser)); 
+            
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox'; 
             currentSelectedJob = null; 
             currentSelectedBatch = null; 
+            isDefectMode = false; 
+            
             fetchInitialData(); 
             startAutoFetch(); 
             render(); 
@@ -321,7 +336,7 @@ function handleLogin() {
         }
     })
     .catch(err => { 
-        showCustomAlert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์: " + err.message); 
+        showCustomAlert("เกิดข้อผิดพลาด: " + err.message); 
         btn.innerHTML = `<span>เข้าสู่ระบบ</span>`; 
         btn.disabled = false; 
     });
@@ -339,7 +354,8 @@ function logout() {
                     <button onclick="executeLogout()" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition flex justify-center items-center">ยืนยัน</button>
                 </div>
             </div>
-        </div>`;
+        </div>
+    `;
     document.body.insertAdjacentHTML('beforeend', html);
 }
 
@@ -359,38 +375,32 @@ function executeLogout() {
 // DATA FETCHING 
 // ==========================================
 function handleRefresh(event) {
-    if (event && event.currentTarget) {
-        const icon = event.currentTarget.querySelector('i');
+    if (event && event.currentTarget) { 
+        const icon = event.currentTarget.querySelector('i'); 
         if (icon) { 
             icon.classList.add('fa-spin'); 
             setTimeout(() => { icon.classList.remove('fa-spin'); }, 1000); 
-        }
+        } 
     }
     
-    if (currentTab === 'admin') {
-        fetchUsersList(); 
-    } else {
-        fetchPeriodicData(false); // เรียกโหลดข้อมูลทั้งระบบ
-    }
+    if (currentTab === 'admin') fetchUsersList(); 
+    else fetchPeriodicData(false);
 }
 
 function fetchInitialData() {
     isLoadingJobs = true;
-    
     Promise.all([
         fetch(`${API_URL}?action=getJobs`).then(res => res.json()).catch(() => []),
         fetch(`${API_URL}?action=getBatches`).then(res => res.json()).catch(() => [])
-    ])
-    .then(([jobsData, batchesData]) => {
-        dbJobs = jobsData || [];
+    ]).then(([jobsData, batchesData]) => {
+        dbJobs = jobsData || []; 
         dbBatches = batchesData || []; 
         isLoadingJobs = false;
         
-        if (currentTab === 'scan' && !currentSelectedJob) {
+        if (currentTab === 'scan' && !currentSelectedJob && !isDefectMode) {
             renderMainApp();
         }
     });
-    
     fetchTickets();
 }
 
@@ -402,30 +412,26 @@ function fetchTickets() {
             updateBadgeAndNotify(dbTickets); 
             if(currentTab === 'inbox') renderMainApp();
         })
-        .catch(err => console.error("โหลดข้อมูล Inbox ไม่สำเร็จ: ", err));
+        .catch(err => console.error("โหลดข้อมูล Inbox ผิดพลาด: ", err));
 }
 
 function fetchPeriodicData(isInitialLoad = false) {
     Promise.all([
         fetch(`${API_URL}?action=getTickets`).then(res => res.json()).catch(() => []),
         fetch(`${API_URL}?action=getBatches`).then(res => res.json()).catch(() => [])
-    ])
-    .then(([ticketsData, batchesData]) => {
+    ]).then(([ticketsData, batchesData]) => {
         dbTickets = ticketsData || []; 
         updateBadgeAndNotify(dbTickets); 
         
         const newBatches = batchesData || [];
-        
-        // แจ้งเตือนเมื่อมีคิวปริ้นใหม่
         if (currentUser && (currentUser.role === 'qc' || currentUser.role === 'supervisor' || currentUser.role === 'admin')) {
             const storedBatchCount = parseInt(localStorage.getItem('qc_batch_count') || '0');
-            
             if (!isInitialLoad && newBatches.length > storedBatchCount) {
                 const newPrints = newBatches.length - storedBatchCount;
                 if ('Notification' in window && Notification.permission === 'granted') {
                     new Notification('🖨️ สัญญาณแจ้งเตือนการปริ้น!', { 
-                        body: `ฝ่ายผลิตสั่งปริ้นฉลากใหม่จำนวน ${newPrints} รายการ (กำลังรอสแกนเข้าสู่ระบบ)`, 
-                        icon: 'https://cdn-icons-png.flaticon.com/512/732/732220.png',
+                        body: `ฝ่ายผลิตสั่งปริ้นฉลากใหม่จำนวน ${newPrints} รายการ`, 
+                        icon: 'https://cdn-icons-png.flaticon.com/512/732/732220.png' 
                     });
                 }
             }
@@ -433,19 +439,18 @@ function fetchPeriodicData(isInitialLoad = false) {
         }
         
         dbBatches = newBatches;
-
         if (currentTab === 'inbox') renderMainApp();
-        if (currentTab === 'scan' && !currentSelectedJob) renderMainApp();
-    })
-    .catch(err => console.error("โหลดข้อมูล Periodic ผิดพลาด: ", err));
+        if (currentTab === 'scan' && !currentSelectedJob && !isDefectMode) renderMainApp();
+    }).catch(err => console.error("โหลดข้อมูล Periodic ผิดพลาด: ", err));
 }
 
 let adminUsersList = [];
 
 function fetchUsersList() {
     const contentDiv = document.getElementById('main-content'); 
-    if(contentDiv) contentDiv.innerHTML = `<div class="flex justify-center items-center h-full"><div class="loader loader-blue loader-large"></div></div>`;
-    
+    if(contentDiv) {
+        contentDiv.innerHTML = `<div class="flex justify-center items-center h-full"><div class="loader loader-blue loader-large"></div></div>`;
+    }
     fetch(`${API_URL}?action=getUsers`)
         .then(res => res.json())
         .then(data => { 
@@ -453,7 +458,7 @@ function fetchUsersList() {
             renderMainApp(); 
         })
         .catch(err => { 
-            showCustomAlert("โหลดข้อมูลผู้ใช้ล้มเหลว: " + err.message); 
+            showCustomAlert(err.message); 
             renderMainApp(); 
         });
 }
@@ -463,10 +468,10 @@ function fetchUsersList() {
 // ==========================================
 function switchTab(tab) {
     if (tab === 'scan' && currentUser.role !== 'operator' && currentUser.role !== 'admin') {
-        return showCustomAlert("คุณไม่มีสิทธิ์เข้าถึงหน้าสแกนฉลาก", false);
+        return showCustomAlert("คุณไม่มีสิทธิ์เข้าถึงหน้านี้", false);
     }
     if (tab === 'admin' && currentUser.role !== 'admin') {
-        return showCustomAlert("คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการระบบ", false);
+        return showCustomAlert("คุณไม่มีสิทธิ์เข้าถึงหน้านี้", false);
     }
     
     currentTab = tab; 
@@ -500,7 +505,7 @@ function renderMainApp() {
         pendingCount = baseTickets.filter(t => t.status === 'pending').length;
     }
 
-    const isFullscreenCamera = currentTab === 'scan' && currentSelectedJob && !capturedImageBase64 && !isProcessingOCR;
+    const isFullscreenCamera = currentTab === 'scan' && (currentSelectedJob || isDefectMode) && !capturedImageBase64 && !isProcessingOCR;
 
     if (isFullscreenCamera) {
         appDiv.innerHTML = `<main class="flex-1 overflow-hidden bg-black relative" id="main-content"></main>`;
@@ -525,7 +530,8 @@ function renderMainApp() {
             <nav class="bg-white border-t flex justify-around p-2 pb-safe z-20">
                 ${(currentUser.role === 'operator' || currentUser.role === 'admin') ? `
                     <button onclick="switchTab('scan')" class="flex flex-col items-center p-2 w-full ${currentTab === 'scan' ? 'text-blue-600' : 'text-gray-400'}">
-                        <i class="fa-solid fa-camera text-xl mb-1"></i><span class="text-[10px] font-medium mt-1">สแกน Label</span>
+                        <i class="fa-solid fa-camera text-xl mb-1"></i>
+                        <span class="text-[10px] font-medium mt-1">สแกน Label</span>
                     </button>
                 ` : ''}
                 <button onclick="switchTab('inbox')" class="flex flex-col items-center p-2 w-full relative ${currentTab === 'inbox' ? 'text-blue-600' : 'text-gray-400'}">
@@ -537,10 +543,12 @@ function renderMainApp() {
                 </button>
                 ${currentUser.role === 'admin' ? `
                     <button onclick="switchTab('admin')" class="flex flex-col items-center p-2 w-full ${currentTab === 'admin' ? 'text-blue-600' : 'text-gray-400'}">
-                        <i class="fa-solid fa-users-cog text-xl mb-1"></i><span class="text-[10px] font-medium mt-1">จัดการผู้ใช้</span>
+                        <i class="fa-solid fa-users-cog text-xl mb-1"></i>
+                        <span class="text-[10px] font-medium mt-1">จัดการผู้ใช้</span>
                     </button>
                 ` : ''}
-            </nav>`;
+            </nav>
+        `;
     }
     renderContent();
 }
@@ -561,7 +569,9 @@ function renderAdminView(container) {
         <div class="max-w-2xl mx-auto fade-in pb-20 p-4">
             <div class="bg-white rounded-xl shadow-sm p-4 mb-6 border-l-4 border-green-500">
                 <div class="flex justify-between items-center mb-2">
-                    <h2 class="font-bold text-gray-700 text-base"><i class="fa-solid fa-database text-green-500 mr-2"></i> สำรองข้อมูล (Backup)</h2>
+                    <h2 class="font-bold text-gray-700 text-base">
+                        <i class="fa-solid fa-database text-green-500 mr-2"></i> สำรองข้อมูล (Backup)
+                    </h2>
                 </div>
                 <p class="text-xs text-gray-500 mb-3">ดาวน์โหลดประวัติการตรวจสอบล่าสุดออกมาเป็นไฟล์ Excel (CSV)</p>
                 <button onclick="exportTicketsToCSV()" class="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold shadow-sm transition flex justify-center items-center gap-2">
@@ -570,8 +580,12 @@ function renderAdminView(container) {
             </div>
             
             <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
-                <h2 class="font-bold text-gray-700 text-lg"><i class="fa-solid fa-users-cog text-blue-500 mr-2"></i> จัดการผู้ใช้งาน</h2>
-                <button onclick="showAddUserModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg shadow-sm font-bold flex items-center gap-2 transition"><i class="fa-solid fa-plus"></i> เพิ่มผู้ใช้</button>
+                <h2 class="font-bold text-gray-700 text-lg">
+                    <i class="fa-solid fa-users-cog text-blue-500 mr-2"></i> จัดการผู้ใช้งาน
+                </h2>
+                <button onclick="showAddUserModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg shadow-sm font-bold flex items-center gap-2 transition">
+                    <i class="fa-solid fa-plus"></i> เพิ่มผู้ใช้
+                </button>
             </div>
             
             <div class="space-y-3">
@@ -613,7 +627,9 @@ function showAddUserModal() {
     const html = `
         <div id="add-user-modal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 fade-in">
             <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
-                <h3 class="font-bold text-blue-600 mb-4 text-xl border-b pb-2"><i class="fa-solid fa-user-plus mr-2"></i>เพิ่มบัญชีผู้ใช้งานใหม่</h3>
+                <h3 class="font-bold text-blue-600 mb-4 text-xl border-b pb-2">
+                    <i class="fa-solid fa-user-plus mr-2"></i>เพิ่มบัญชีผู้ใช้งานใหม่
+                </h3>
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">ชื่อ-สกุล <span class="text-red-500">*</span></label>
@@ -646,7 +662,9 @@ function showAddUserModal() {
                 </div>
                 <div class="flex gap-3 mt-6">
                     <button onclick="document.getElementById('add-user-modal').remove()" class="flex-1 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-bold transition">ยกเลิก</button>
-                    <button onclick="executeAddUser()" id="btn-add-user" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition shadow-md flex justify-center items-center gap-2"><i class="fa-solid fa-save"></i> บันทึก</button>
+                    <button onclick="executeAddUser()" id="btn-add-user" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition shadow-md flex justify-center items-center gap-2">
+                        <i class="fa-solid fa-save"></i> บันทึก
+                    </button>
                 </div>
             </div>
         </div>
@@ -705,7 +723,9 @@ function confirmDeleteUser(username) {
                 <p class="text-sm text-gray-600 mb-6">คุณกำลังจะลบบัญชี <span class="font-bold text-red-600">${username}</span><br>การกระทำนี้ไม่สามารถกู้คืนได้</p>
                 <div class="flex gap-3">
                     <button onclick="document.getElementById('delete-modal').remove()" class="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-300 transition">ยกเลิก</button>
-                    <button onclick="executeDeleteUser('${username}')" id="btn-delete-user" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition flex justify-center items-center"><i class="fa-solid fa-trash-can mr-2"></i> ลบถาวร</button>
+                    <button onclick="executeDeleteUser('${username}')" id="btn-delete-user" class="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition flex justify-center items-center">
+                        <i class="fa-solid fa-trash-can mr-2"></i> ลบถาวร
+                    </button>
                 </div>
             </div>
         </div>
@@ -742,7 +762,7 @@ function executeDeleteUser(username) {
 // RENDER VIEWS (SCAN)
 // ==========================================
 function renderScanView(container) {
-    if (!currentSelectedJob) {
+    if (!currentSelectedJob && !isDefectMode) {
         let jobOptions = "";
         let batchOptions = `<option value="">-- เลือกเลข Batch ที่เพิ่งปริ้น --</option>`;
         let isSelectDisabled = false;
@@ -763,34 +783,45 @@ function renderScanView(container) {
                 batchOptions = `<option value="">❌ ไม่พบคิวการปริ้น (กรุณาสั่งปริ้นก่อนเข้าแอป)</option>`;
                 isSelectDisabled = true; 
             } else {
-                // 🟢 สกัดเอาเฉพาะชื่อไฟล์เผื่อยังติด Path มาจากของเก่า
-                batchOptions += dbBatches.map(b => {
-                    let cleanDocName = b.docName ? b.docName.split('\\').pop().split('/').pop() : 'Unknown';
-                    return `<option value="${b.batchNo}">${b.batchNo} (ไฟล์: ${cleanDocName} | ${b.timestamp.split(' ')[1]})</option>`;
-                }).join('');
+                batchOptions += dbBatches.map(b => `<option value="${b.batchNo}">${b.batchNo} (เวลา: ${b.timestamp.split(' ')[1]})</option>`).join('');
             }
         }
 
         container.innerHTML = `
             <div class="max-w-md mx-auto fade-in mt-10 p-4">
                 <div class="bg-white rounded-xl shadow p-6 border-t-4 border-blue-500">
-                    <h2 class="font-bold text-lg text-gray-800 mb-4"><i class="fa-solid fa-clipboard-list text-blue-500 mr-2"></i> 1. เตรียมการสแกน</h2>
+                    <h2 class="font-bold text-lg text-gray-800 mb-4">
+                        <i class="fa-solid fa-clipboard-list text-blue-500 mr-2"></i> 1. เตรียมการสแกน
+                    </h2>
                     
                     <p class="text-xs text-gray-500 mb-1">เลือก Job Order</p>
                     <select id="job-selector" class="w-full p-3 border rounded-lg bg-gray-50 text-base font-bold mb-4 text-gray-800" ${isSelectDisabled ? 'disabled' : ''}>
                         ${jobOptions}
                     </select>
 
-                    <p class="text-xs text-blue-600 font-bold mb-1"><i class="fa-solid fa-print"></i> เลือกรหัสเครื่องปริ้น (Batch No)</p>
+                    <p class="text-xs text-blue-600 font-bold mb-1">
+                        <i class="fa-solid fa-print"></i> เลือกรหัสเครื่องปริ้น (Batch No)
+                    </p>
                     <select id="batch-selector" class="w-full p-3 border-2 border-blue-200 rounded-lg bg-blue-50 text-base font-bold mb-6 text-blue-800" ${isSelectDisabled ? 'disabled' : ''}>
                         ${batchOptions}
                     </select>
 
-                    <button onclick="selectJobAndStartCamera()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition disabled:opacity-50 flex justify-center items-center gap-2" ${isSelectDisabled ? 'disabled' : ''}>
-                        <i class="fa-solid fa-camera"></i> ยืนยันและเปิดกล้อง
-                    </button>
+                    <div class="grid grid-cols-2 gap-2 mt-2">
+                        <button onclick="selectJobAndStartCamera()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition disabled:opacity-50 flex flex-col justify-center items-center gap-1" ${isSelectDisabled ? 'disabled' : ''}>
+                            <i class="fa-solid fa-camera text-xl"></i> 
+                            <span class="text-sm">สแกนปกติ</span>
+                        </button>
+                        <button onclick="startDefectMode()" class="w-full py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg shadow-md transition disabled:opacity-50 flex flex-col justify-center items-center gap-1" ${dbBatches.length === 0 ? 'disabled' : ''}>
+                            <i class="fa-solid fa-trash-can text-xl"></i> 
+                            <span class="text-sm">แจ้งปริ้นเสีย</span>
+                        </button>
+                    </div>
                     
-                    ${dbBatches.length === 0 && !isLoadingJobs ? `<p class="text-xs text-red-500 text-center mt-3"><i class="fa-solid fa-triangle-exclamation"></i> ระบบป้องกันความผิดพลาด: คุณต้องสั่งปริ้นจากเครื่องคอมพิวเตอร์ก่อน จึงจะสามารถเปิดกล้องสแกนได้</p>` : ''}
+                    ${dbBatches.length === 0 && !isLoadingJobs ? `
+                        <p class="text-xs text-red-500 text-center mt-3">
+                            <i class="fa-solid fa-triangle-exclamation"></i> ระบบป้องกันความผิดพลาด: คุณต้องสั่งปริ้นจากเครื่องคอมพิวเตอร์ก่อน จึงจะสามารถเปิดกล้องสแกนได้
+                        </p>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -801,6 +832,10 @@ function renderScanView(container) {
     const targetModel = jobObj ? jobObj.targetModel : "Unknown";
 
     if (!capturedImageBase64 && !isProcessingOCR) {
+        let shutterAction = isDefectMode ? "captureDefectImage()" : "captureImage()";
+        let headerText = isDefectMode ? "ถ่ายรูปหลักฐานงานเสีย" : currentSelectedJob;
+        let subText = isDefectMode ? `<i class="fa-solid fa-print"></i> โหมดบันทึกงานเสีย` : `<i class="fa-solid fa-print"></i> ${currentSelectedBatch}`;
+        
         container.innerHTML = `
             <div class="fixed inset-0 z-50 bg-black flex flex-col fade-in">
                 <div class="absolute top-0 w-full p-4 flex justify-between items-start z-20 bg-gradient-to-b from-black/70 to-transparent">
@@ -808,17 +843,17 @@ function renderScanView(container) {
                         <i class="fa-solid fa-arrow-left"></i>
                     </button>
                     <div class="text-right">
-                        <div class="text-white font-bold text-sm drop-shadow-md">${currentSelectedJob}</div>
-                        <div class="text-blue-300 text-xs drop-shadow-md"><i class="fa-solid fa-print"></i> ${currentSelectedBatch}</div>
+                        <div class="${isDefectMode ? 'text-red-400' : 'text-white'} font-bold text-sm drop-shadow-md">${headerText}</div>
+                        <div class="${isDefectMode ? 'text-white' : 'text-blue-300'} text-xs drop-shadow-md">${subText}</div>
                     </div>
                 </div>
                 <div class="flex-1 w-full h-full flex justify-center items-center relative overflow-hidden">
                     <video id="video" class="w-full h-full object-cover" autoplay playsinline></video>
-                    <div class="scanner-line z-10" id="scanner-line"></div>
+                    ${!isDefectMode ? `<div class="scanner-line z-10" id="scanner-line"></div>` : ''}
                 </div>
                 <div class="absolute bottom-0 w-full p-8 flex justify-center items-center z-20 pb-safe bg-gradient-to-t from-black/80 to-transparent">
-                    <div class="shutter-btn" onclick="captureImage()">
-                        <div class="shutter-btn-inner"></div>
+                    <div class="shutter-btn" onclick="${shutterAction}">
+                        <div class="shutter-btn-inner ${isDefectMode ? 'bg-red-500' : 'bg-white'}"></div>
                     </div>
                 </div>
             </div>
@@ -832,42 +867,35 @@ function renderScanView(container) {
     const safeDate = typeof extractedDate !== 'undefined' ? extractedDate : '';
     const safeQty = typeof extractedQty !== 'undefined' ? extractedQty : ''; 
 
-    let verifyHtml = '';
-    let testModeHtml = currentUser.role === 'admin' ? `
-        <div class="mt-4 flex items-center justify-between bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-            <label for="test-mode-toggle" class="text-sm font-bold text-yellow-800 flex items-center gap-2 cursor-pointer">
-                <i class="fa-solid fa-flask text-yellow-600"></i> ส่งเป็นข้อมูลทดสอบระบบ
-            </label>
-            <input type="checkbox" id="test-mode-toggle" class="w-5 h-5 accent-yellow-600 cursor-pointer">
-        </div>
-    ` : '';
-
-    if (!verificationResult) {
-        verifyHtml = `
-            <button onclick="runSmartVerification()" class="w-full py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg shadow transition mt-6 flex justify-center items-center gap-2">
-                <i class="fa-solid fa-magnifying-glass-check"></i> กดตรวจสอบความถูกต้อง
-            </button>
-        `;
-    } else {
-        let msgList = verificationResult.messages.map(m => `<li>${m}</li>`).join('');
-        verifyHtml = `
-            <div class="mt-4 p-4 rounded-xl border-2 ${verificationResult.isPass ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
-                <h4 class="font-bold text-base mb-3 flex items-center ${verificationResult.isPass ? 'text-green-700' : 'text-red-700'}">
-                    ${verificationResult.isPass ? '<i class="fa-solid fa-circle-check mr-2 text-xl"></i> ผลตรวจสอบ: ผ่าน (PASS)' : '<i class="fa-solid fa-circle-xmark mr-2 text-xl"></i> ผลตรวจสอบ: พบข้อผิดพลาด (NG)'}
-                </h4>
-                <ul class="text-xs space-y-1.5 text-gray-700">${msgList}</ul>
-            </div>
-            ${testModeHtml}
-            <div id="submit-action-container">
-                <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" ${!verificationResult.isPass ? 'disabled' : ''} id="submit-btn">
-                    <i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC
-                </button>
-            </div>
-        `;
-    }
-
     let innerContent = '';
-    if (isProcessingOCR) {
+    
+    // 🟢 หน้าต่างสำหรับโหมดงานเสีย
+    if (isDefectMode) {
+        innerContent = `
+            <div class="space-y-4">
+                <h3 class="font-bold text-red-600 text-sm flex items-center border-b pb-2">
+                    <i class="fa-solid fa-triangle-exclamation mr-2 text-lg"></i> บันทึกข้อมูลงานเสีย (Defect)
+                </h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">จำนวนที่ปริ้นเสีย (ดวง) <span class="text-red-500">*</span></label>
+                        <input type="number" id="defect-qty" class="w-full border-2 border-red-200 py-2 px-3 rounded-lg font-bold text-gray-800 text-base focus:border-red-500 outline-none transition bg-red-50" placeholder="ระบุจำนวน">
+                    </div>
+                    <div>
+                        <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">สาเหตุ / อาการเสีย <span class="text-red-500">*</span></label>
+                        <textarea id="defect-reason" rows="3" class="w-full border-2 border-gray-200 py-2 px-3 rounded-lg text-sm focus:border-red-500 outline-none transition" placeholder="เช่น กระดาษติด, หมึกจาง, ปริ้นเทสระบบ..."></textarea>
+                    </div>
+                </div>
+                <div id="submit-action-container">
+                    <button onclick="submitDefectToQC()" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-md transition mt-4 flex justify-center items-center gap-2" id="submit-btn">
+                        <i class="fa-solid fa-save"></i> บันทึกข้อมูลงานเสีย
+                    </button>
+                </div>
+            </div>
+        `;
+    } 
+    // หน้าต่างสำหรับสแกนปกติ
+    else if (isProcessingOCR) {
         innerContent = `
             <div class="h-full flex flex-col justify-center items-center py-10">
                 <div class="loader loader-blue loader-large mb-4"></div>
@@ -876,9 +904,45 @@ function renderScanView(container) {
             </div>
         `;
     } else {
+        let testModeHtml = currentUser.role === 'admin' ? `
+            <div class="mt-4 flex items-center justify-between bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                <label for="test-mode-toggle" class="text-sm font-bold text-yellow-800 flex items-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-flask text-yellow-600"></i> ส่งเป็นข้อมูลทดสอบระบบ
+                </label>
+                <input type="checkbox" id="test-mode-toggle" class="w-5 h-5 accent-yellow-600 cursor-pointer">
+            </div>
+        ` : '';
+        
+        let verifyHtml = '';
+        if (!verificationResult) {
+            verifyHtml = `
+                <button onclick="runSmartVerification()" class="w-full py-3 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg shadow transition mt-6 flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-magnifying-glass-check"></i> กดตรวจสอบความถูกต้อง
+                </button>
+            `;
+        } else {
+            let msgList = verificationResult.messages.map(m => `<li>${m}</li>`).join('');
+            verifyHtml = `
+                <div class="mt-4 p-4 rounded-xl border-2 ${verificationResult.isPass ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
+                    <h4 class="font-bold text-base mb-3 flex items-center ${verificationResult.isPass ? 'text-green-700' : 'text-red-700'}">
+                        ${verificationResult.isPass ? '<i class="fa-solid fa-circle-check mr-2 text-xl"></i> ผลตรวจสอบ: ผ่าน (PASS)' : '<i class="fa-solid fa-circle-xmark mr-2 text-xl"></i> ผลตรวจสอบ: พบข้อผิดพลาด (NG)'}
+                    </h4>
+                    <ul class="text-xs space-y-1.5 text-gray-700">${msgList}</ul>
+                </div>
+                ${testModeHtml}
+                <div id="submit-action-container">
+                    <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" ${!verificationResult.isPass ? 'disabled' : ''} id="submit-btn">
+                        <i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC
+                    </button>
+                </div>
+            `;
+        }
+
         innerContent = `
             <div class="space-y-4">
-                <h3 class="font-bold text-sm text-gray-700 flex items-center border-b pb-2"><i class="fa-solid fa-robot text-blue-500 mr-2 text-lg"></i> ผลลัพธ์ที่ AI อ่านได้</h3>
+                <h3 class="font-bold text-sm text-gray-700 flex items-center border-b pb-2">
+                    <i class="fa-solid fa-robot text-blue-500 mr-2 text-lg"></i> ผลลัพธ์ที่ AI อ่านได้
+                </h3>
                 <div class="space-y-3">
                     <div>
                         <label class="text-[10px] text-gray-500 uppercase font-bold tracking-wider">1. Model</label>
@@ -907,20 +971,32 @@ function renderScanView(container) {
     container.innerHTML = `
         <div class="max-w-md mx-auto fade-in h-full flex flex-col pb-4 p-4">
             <div class="bg-white rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
-                <div class="p-3 bg-blue-50 border-b flex justify-between items-center">
+                <div class="p-3 ${isDefectMode ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'} border-b flex justify-between items-center">
                     <div>
-                        <span class="text-[10px] text-gray-500 uppercase tracking-wider block font-bold">Job ปัจจุบัน</span>
-                        <span class="font-bold text-blue-800 text-sm">${currentSelectedJob}</span>
-                        <span class="block text-[10px] text-blue-600 font-bold mt-0.5"><i class="fa-solid fa-print"></i> ${currentSelectedBatch}</span>
+                        <span class="text-[10px] text-gray-500 uppercase tracking-wider block font-bold">
+                            ${isDefectMode ? 'โหมดงานเสีย' : 'Job ปัจจุบัน'}
+                        </span>
+                        <span class="font-bold ${isDefectMode ? 'text-red-800' : 'text-blue-800'} text-sm">
+                            ${isDefectMode ? 'แจ้งปัญหาการปริ้น' : currentSelectedJob}
+                        </span>
+                        <span class="block text-[10px] ${isDefectMode ? 'text-red-600' : 'text-blue-600'} font-bold mt-0.5">
+                            <i class="fa-solid fa-print"></i> ${currentSelectedBatch}
+                        </span>
                     </div>
-                    <button onclick="changeJob()" class="text-[10px] text-blue-600 border border-blue-600 px-2 py-1 rounded bg-white font-bold h-fit"><i class="fa-solid fa-pen"></i> เปลี่ยน</button>
+                    <button onclick="changeJob()" class="text-[10px] ${isDefectMode ? 'text-red-600 border-red-600' : 'text-blue-600 border-blue-600'} border px-2 py-1 rounded bg-white font-bold h-fit">
+                        <i class="fa-solid fa-pen"></i> เปลี่ยน
+                    </button>
                 </div>
                 
                 <div class="bg-black flex justify-center items-center h-48 relative border-b cursor-pointer" onclick="if('${capturedImageBase64}') showImageModal('${capturedImageBase64}')" title="คลิกเพื่อขยายรูปภาพ">
-                    <div class="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs backdrop-blur-sm pointer-events-none z-10"><i class="fa-solid fa-magnifying-glass-plus"></i> ขยาย</div>
+                    <div class="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs backdrop-blur-sm pointer-events-none z-10">
+                        <i class="fa-solid fa-magnifying-glass-plus"></i> ขยาย
+                    </div>
                     <img src="${capturedImageBase64 || ''}" class="w-full h-full object-contain pointer-events-none" />
                     
-                    <button onclick="event.stopPropagation(); retakePhoto()" class="absolute bottom-2 right-2 bg-black/60 text-white px-3 py-1.5 rounded-lg text-xs backdrop-blur-sm border border-white/20 shadow z-10"><i class="fa-solid fa-rotate-right mr-1"></i> ถ่ายใหม่</button>
+                    <button onclick="event.stopPropagation(); retakePhoto()" class="absolute bottom-2 right-2 bg-black/60 text-white px-3 py-1.5 rounded-lg text-xs backdrop-blur-sm border border-white/20 shadow z-10">
+                        <i class="fa-solid fa-rotate-right mr-1"></i> ถ่ายใหม่
+                    </button>
                 </div>
                 
                 <div class="p-4 bg-white overflow-y-auto">
@@ -938,6 +1014,17 @@ function selectJobAndStartCamera() {
     if(!currentSelectedJob) return showCustomAlert("กรุณาเลือก Job Order ก่อนครับ");
     if(!currentSelectedBatch) return showCustomAlert("กรุณาเลือกเลข Batch ที่ส่งมาจากเครื่องปริ้นก่อนครับ");
 
+    isDefectMode = false;
+    renderMainApp();
+}
+
+// 🟢 ฟังก์ชันสำหรับปุ่มแจ้งเสีย
+function startDefectMode() {
+    currentSelectedBatch = document.getElementById('batch-selector') ? document.getElementById('batch-selector').value : null;
+    if(!currentSelectedBatch) return showCustomAlert("กรุณาเลือกเลข Batch ที่ต้องการแจ้งเสียก่อนครับ");
+    
+    isDefectMode = true;
+    currentSelectedJob = "DEFECT"; // Dummy ข้ามการเช็ค Job
     renderMainApp();
 }
 
@@ -947,6 +1034,7 @@ function changeJob() {
     capturedImageBase64 = null; 
     verificationResult = null; 
     isProcessingOCR = false;
+    isDefectMode = false;
     
     try { 
         extractedModel = ""; 
@@ -968,7 +1056,11 @@ function submitToQC() {
 
     const btnContainer = document.getElementById('submit-action-container');
     if(btnContainer) {
-        btnContainer.innerHTML = `<div class="w-full text-center py-4 text-blue-600 font-bold bg-blue-50 rounded-lg mt-4 border border-blue-200"><div class="loader loader-blue mb-2"></div> กำลังอัปโหลดข้อมูลสู่ Cloud...</div>`;
+        btnContainer.innerHTML = `
+            <div class="w-full text-center py-4 text-blue-600 font-bold bg-blue-50 rounded-lg mt-4 border border-blue-200">
+                <div class="loader loader-blue mb-2"></div> กำลังอัปโหลดข้อมูลสู่ Cloud...
+            </div>
+        `;
     }
 
     const img = new Image();
@@ -992,12 +1084,12 @@ function submitToQC() {
 
         const newTicket = {
             jobOrder: finalJobOrder, 
-            model: document.getElementById('ocr-model').value,
+            model: document.getElementById('ocr-model').value, 
             lot: document.getElementById('ocr-lot').value,
-            date: document.getElementById('ocr-date').value,
+            date: document.getElementById('ocr-date').value, 
             qty: qtyInput ? qtyInput.value.trim() : '', 
-            operator: currentUser.name,
-            batchNo: currentSelectedBatch, // 🟢 ส่ง Batch กลับไปเคลียร์คิว
+            operator: currentUser.name, 
+            batchNo: currentSelectedBatch, 
             image: reducedImageBase64
         };
 
@@ -1007,12 +1099,12 @@ function submitToQC() {
         })
         .then(res => res.json())
         .then(res => {
-            if (res.success) {
-                showCustomAlert(`ส่งข้อมูลให้ QC ตรวจสอบสำเร็จ!`, true);
+            if (res.success) { 
+                showCustomAlert(`ส่งข้อมูลให้ QC ตรวจสอบสำเร็จ!`, true); 
                 capturedImageBase64 = null; 
-                verificationResult = null;
+                verificationResult = null; 
                 fetchPeriodicData(true); 
-                switchTab('inbox');
+                switchTab('inbox'); 
             } else {
                 throw new Error(res.error);
             }
@@ -1020,18 +1112,81 @@ function submitToQC() {
         .catch(err => {
             showCustomAlert("เกิดข้อผิดพลาดในการบันทึก: " + err.message);
             if(btnContainer) {
-                btnContainer.innerHTML = `<button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2" id="submit-btn"><i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC</button>`;
+                btnContainer.innerHTML = `
+                    <button onclick="submitToQC()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition mt-4 disabled:opacity-50 flex justify-center items-center gap-2" id="submit-btn">
+                        <i class="fa-solid fa-paper-plane"></i> ส่งผลตรวจสอบให้ QC
+                    </button>
+                `;
             }
         });
     };
     img.src = capturedImageBase64;
 }
 
+// 🟢 ฟังก์ชันส่งข้อมูลงานเสีย
+function submitDefectToQC() {
+    const qtyInput = document.getElementById('defect-qty');
+    const reasonInput = document.getElementById('defect-reason');
+
+    if (!qtyInput || !qtyInput.value.trim()) return showCustomAlert("กรุณาระบุ 'จำนวนที่ปริ้นเสีย'");
+    if (!reasonInput || !reasonInput.value.trim()) return showCustomAlert("กรุณาระบุ 'สาเหตุ/อาการเสีย'");
+
+    const btnContainer = document.getElementById('submit-action-container');
+    if(btnContainer) {
+        btnContainer.innerHTML = `
+            <div class="w-full text-center py-4 text-red-600 font-bold bg-red-50 rounded-lg mt-4 border border-red-200">
+                <div class="loader loader-blue mb-2" style="border-top-color:#ef4444;"></div> กำลังบันทึกข้อมูลงานเสีย...
+            </div>
+        `;
+    }
+
+    const newTicket = {
+        jobOrder: "DEFECT", 
+        model: "-", 
+        lot: "-", 
+        date: "-",
+        qty: qtyInput.value.trim(), 
+        operator: currentUser.name,
+        batchNo: currentSelectedBatch,
+        image: capturedImageBase64,
+        defectReason: reasonInput.value.trim()
+    };
+
+    fetch(API_URL, { 
+        method: 'POST', 
+        body: JSON.stringify({ action: "saveDefect", payload: newTicket }) 
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.success) {
+            showCustomAlert(`บันทึกข้อมูลงานเสีย (Defect) สำเร็จ!`, true);
+            capturedImageBase64 = null; 
+            isDefectMode = false;
+            currentSelectedJob = null; 
+            currentSelectedBatch = null;
+            fetchPeriodicData(true); 
+            switchTab('inbox');
+        } else {
+            throw new Error(res.error);
+        }
+    })
+    .catch(err => {
+        showCustomAlert("เกิดข้อผิดพลาดในการบันทึก: " + err.message);
+        if(btnContainer) {
+            btnContainer.innerHTML = `
+                <button onclick="submitDefectToQC()" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-md transition mt-4 flex justify-center items-center gap-2" id="submit-btn">
+                    <i class="fa-solid fa-save"></i> บันทึกงานเสีย
+                </button>
+            `;
+        }
+    });
+}
+
 // ==========================================
 // RENDER VIEWS (INBOX - EMAIL STYLE)
 // ==========================================
 let currentInboxFilter = 'pending'; 
-let inboxSearchTerm = '';
+let inboxSearchTerm = ''; 
 let inboxStartDate = getTodayDateString(); 
 let inboxEndDate = getTodayDateString();   
 
@@ -1060,7 +1215,6 @@ function executeInboxDateFilter() {
 
 function renderInboxView(container) {
     let baseTickets = dbTickets;
-    
     if (currentUser.role !== 'admin') {
         baseTickets = baseTickets.filter(t => !String(t.jobOrder).includes('[TEST]'));
     }
@@ -1096,7 +1250,6 @@ function renderInboxView(container) {
                 <h2 class="font-bold text-gray-800 text-lg mb-3 flex items-center">
                     <i class="fa-solid fa-envelope-open-text text-blue-500 mr-2 text-xl"></i> กล่องข้อความ
                 </h2>
-                
                 <div class="flex gap-2 mb-3">
                     <div class="flex-1">
                         <label class="block text-[10px] text-gray-500 uppercase font-bold mb-1">ตั้งแต่วันที่</label>
@@ -1107,7 +1260,6 @@ function renderInboxView(container) {
                         <input type="date" id="inbox-end-date" value="${inboxEndDate}" onchange="executeInboxDateFilter()" class="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
                     </div>
                 </div>
-                
                 <div class="relative flex gap-2 mb-3">
                     <div class="relative flex-1">
                         <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
@@ -1115,7 +1267,6 @@ function renderInboxView(container) {
                     </div>
                     <button onclick="executeInboxSearch()" class="bg-gray-800 text-white px-4 rounded-lg text-sm font-bold shadow-sm hover:bg-gray-700 transition">ค้นหา</button>
                 </div>
-                
                 <div class="flex bg-gray-100 p-1 rounded-lg">
                     <button onclick="setInboxFilter('pending')" class="flex-1 py-2 text-sm font-bold rounded-md transition flex justify-center items-center gap-1.5 ${currentInboxFilter === 'pending' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
                         รอตรวจสอบ ${pendingCount > 0 ? `<span class="${currentInboxFilter === 'pending' ? 'bg-red-500' : 'bg-gray-400'} text-white text-[10px] px-1.5 py-0.5 rounded-full">${pendingCount}</span>` : ''}
@@ -1133,7 +1284,6 @@ function renderInboxView(container) {
             <div class="text-center text-gray-500 py-12 bg-white rounded-xl shadow-sm border border-dashed border-gray-300">
                 <i class="fa-regular fa-folder-open text-5xl text-gray-300 mb-3"></i>
                 <p class="font-bold text-gray-600">ไม่มีรายการในหมวดหมู่นี้</p>
-                <p class="text-xs text-gray-400 mt-1">ลองเปลี่ยนช่วงวันที่หรือคำค้นหาดูนะครับ</p>
             </div>
         `;
     }
@@ -1141,26 +1291,28 @@ function renderInboxView(container) {
     displayTickets.forEach(t => {
         let statusColor = t.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' 
                         : t.status === 'approved' ? 'bg-green-100 text-green-800 border-green-300' 
+                        : t.status === 'defect' ? 'bg-gray-100 text-gray-800 border-gray-300' 
                         : 'bg-red-100 text-red-800 border-red-300';
                         
         let statusIcon = t.status === 'pending' ? '<i class="fa-solid fa-clock"></i> รอตรวจ' 
                        : t.status === 'approved' ? '<i class="fa-solid fa-check-circle"></i> ผ่าน' 
+                       : t.status === 'defect' ? '<i class="fa-solid fa-trash-can"></i> งานเสีย'
                        : '<i class="fa-solid fa-times-circle"></i> ปฏิเสธ';
                        
         let cleanTime = formatDisplayDate(t.timestamp).split(' ')[1] || formatDisplayDate(t.timestamp);
         let jobDisplay = t.jobOrder.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${t.jobOrder.replace('[TEST] ', '')}` : t.jobOrder;
 
         html += `
-            <div onclick="openTicket('${t.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${t.status === 'pending' ? 'border-yellow-500' : t.status === 'approved' ? 'border-green-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3 transition">
+            <div onclick="openTicket('${t.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${t.status === 'pending' ? 'border-yellow-500' : t.status === 'approved' ? 'border-green-500' : t.status === 'defect' ? 'border-gray-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3 transition">
                 <div class="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200 shadow-inner">
                     <img src="${getDriveImageUrl(t.imageUrl)}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150'">
                 </div>
                 <div class="flex-1 overflow-hidden">
                     <div class="flex justify-between items-start">
-                        <span class="font-bold text-blue-800 text-sm truncate pr-2">${jobDisplay}</span>
+                        <span class="font-bold ${t.status === 'defect' ? 'text-gray-800' : 'text-blue-800'} text-sm truncate pr-2">${t.status === 'defect' ? 'บันทึกงานเสีย' : jobDisplay}</span>
                         <span class="text-[10px] px-2 py-0.5 rounded-full border ${statusColor} font-medium flex-shrink-0">${statusIcon}</span>
                     </div>
-                    <div class="text-sm font-bold text-gray-800 mt-1 truncate">Model: ${t.model}</div>
+                    <div class="text-sm font-bold text-gray-800 mt-1 truncate">${t.status === 'defect' ? `เหตุผล: ${t.rejectReason}` : `Model: ${t.model}`}</div>
                     <div class="text-[10px] text-gray-500 mt-1 truncate flex items-center gap-1">
                         <i class="fa-solid fa-user-circle"></i> ${t.operator} • ${cleanTime} ${t.batchNo ? `• <i class="fa-solid fa-print"></i> ${t.batchNo}` : ''}
                     </div>
@@ -1207,7 +1359,11 @@ function processTicket(action) {
     } else {
         const actionContainer = document.getElementById('qc-action-buttons');
         if(actionContainer) {
-            actionContainer.innerHTML = `<div class="w-full text-center py-3 text-blue-600 font-bold bg-blue-50 rounded-lg"><div class="loader loader-blue mb-2"></div> กำลังอัปโหลดข้อมูลสู่ Cloud...</div>`;
+            actionContainer.innerHTML = `
+                <div class="w-full text-center py-3 text-blue-600 font-bold bg-blue-50 rounded-lg">
+                    <div class="loader loader-blue mb-2"></div> กำลังอัปโหลดข้อมูลสู่ Cloud...
+                </div>
+            `;
         }
         executeProcessTicket(action);
     }
@@ -1215,7 +1371,7 @@ function processTicket(action) {
 
 function renderTicketDetail(container) {
     let t = selectedTicket;
-    let statusColor = t.status === 'pending' ? 'text-yellow-600' : t.status === 'approved' ? 'text-green-600' : 'text-red-600';
+    let statusColor = t.status === 'pending' ? 'text-yellow-600' : t.status === 'approved' ? 'text-green-600' : t.status === 'defect' ? 'text-gray-600' : 'text-red-600';
     let canApprove = (currentUser.role === 'qc' || currentUser.role === 'admin' || currentUser.role === 'supervisor') && t.status === 'pending';
     let jobDisplay = t.jobOrder.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${t.jobOrder.replace('[TEST] ', '')}` : t.jobOrder;
 
@@ -1224,11 +1380,10 @@ function renderTicketDetail(container) {
             <button onclick="closeTicket()" class="mb-4 text-blue-600 hover:text-blue-800 font-medium">
                 <i class="fa-solid fa-arrow-left mr-1"></i> ย้อนกลับ
             </button>
-            
             <div class="bg-white rounded-xl shadow-md overflow-hidden">
                 <div class="p-4 border-b flex justify-between items-center bg-gray-50">
                     <div class="overflow-hidden pr-2">
-                        <h2 class="font-bold text-lg text-blue-800 truncate">${jobDisplay}</h2>
+                        <h2 class="font-bold text-lg ${t.status === 'defect' ? 'text-gray-800' : 'text-blue-800'} truncate">${t.status === 'defect' ? 'บันทึกงานเสีย' : jobDisplay}</h2>
                         <span class="text-[10px] text-gray-500 font-mono">Ref: ${t.id} ${t.batchNo ? `| Batch: ${t.batchNo}` : ''}</span>
                     </div>
                     <span class="font-bold ${statusColor} uppercase text-sm flex-shrink-0">${t.status}</span>
@@ -1242,6 +1397,7 @@ function renderTicketDetail(container) {
                 </div>
                 
                 <div class="p-5 space-y-4">
+                    ${t.status === 'defect' ? '' : `
                     <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
                         <h3 class="font-bold text-blue-800 mb-2 border-b border-blue-200 pb-1">ข้อมูลที่สกัดได้จากฉลาก</h3>
                         <div class="grid grid-cols-3 gap-2 text-sm">
@@ -1250,14 +1406,23 @@ function renderTicketDetail(container) {
                             <div class="text-gray-500 mt-1">วันที่ผลิต:</div><div class="col-span-2 font-bold text-gray-800 mt-1">${t.date}</div>
                             <div class="text-gray-500 mt-1">จำนวน:</div><div class="col-span-2 font-bold text-blue-700 mt-1">${t.qty || '-'}</div>
                         </div>
-                    </div>
+                    </div>`}
                     
                     <div class="grid grid-cols-2 gap-4 text-xs text-gray-500 border-t pt-4">
                         <div><span class="block font-bold text-gray-700">ส่งเรื่อง (OP):</span>${t.operator} <br> ${formatDisplayDate(t.timestamp)}</div>
-                        ${t.status !== 'pending' ? `<div><span class="block font-bold text-gray-700">ตรวจสอบ (QC):</span>${t.qc} <br> ${formatDisplayDate(t.actionTime)}</div>` : ''}
+                        ${t.status !== 'pending' && t.status !== 'defect' ? `<div><span class="block font-bold text-gray-700">ตรวจสอบ (QC):</span>${t.qc} <br> ${formatDisplayDate(t.actionTime)}</div>` : ''}
+                        ${t.status === 'defect' ? `<div><span class="block font-bold text-gray-700">จำนวนที่เสีย:</span><span class="text-red-600 font-bold text-sm">${t.qty} ดวง</span></div>` : ''}
                     </div>
                     
-                    ${t.rejectReason ? `<div class="bg-red-50 text-red-700 p-3 rounded border border-red-200 text-sm mt-3"><strong>สาเหตุที่ปฏิเสธ:</strong> ${t.rejectReason}</div>` : ''}
+                    ${t.status === 'defect' ? `
+                        <div class="bg-gray-100 text-gray-700 p-3 rounded border border-gray-300 text-sm mt-3">
+                            <strong>สาเหตุที่ปริ้นเสีย:</strong> ${t.rejectReason}
+                        </div>
+                    ` : (t.rejectReason ? `
+                        <div class="bg-red-50 text-red-700 p-3 rounded border border-red-200 text-sm mt-3">
+                            <strong>สาเหตุที่ปฏิเสธ:</strong> ${t.rejectReason}
+                        </div>
+                    ` : '')}
                     
                     ${canApprove ? `
                         <div class="flex flex-col pt-4 border-t mt-4">
@@ -1265,8 +1430,12 @@ function renderTicketDetail(container) {
                                 คุณกำลังจะตรวจสอบเอกสารนี้ในชื่อ <strong>${currentUser.name}</strong>
                             </div>
                             <div id="qc-action-buttons" class="flex gap-3">
-                                <button onclick="processTicket('approved')" class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2"><i class="fa-solid fa-check-circle"></i> อนุมัติ (PASS)</button>
-                                <button onclick="processTicket('rejected')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2"><i class="fa-solid fa-times-circle"></i> ปฏิเสธ (NG)</button>
+                                <button onclick="processTicket('approved')" class="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2">
+                                    <i class="fa-solid fa-check-circle"></i> อนุมัติ (PASS)
+                                </button>
+                                <button onclick="processTicket('rejected')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition flex justify-center items-center gap-2">
+                                    <i class="fa-solid fa-times-circle"></i> ปฏิเสธ (NG)
+                                </button>
                             </div>
                         </div>
                     ` : ''}
@@ -1285,12 +1454,10 @@ function initApp() {
         try {
             currentUser = JSON.parse(savedUser);
             if (!currentUser || !currentUser.role) throw new Error("Invalid Session Data");
-            
             currentTab = (currentUser.role === 'operator' || currentUser.role === 'admin') ? 'scan' : 'inbox';
             requestNotificationPermission(); 
             fetchInitialData(); 
             startAutoFetch(); 
-            
         } catch (e) { 
             localStorage.removeItem('qc_app_user'); 
             currentUser = null; 
