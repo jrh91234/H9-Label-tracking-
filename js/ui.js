@@ -1,4 +1,11 @@
 // ==========================================
+// SYSTEM CONFIGURATION (ตั้งค่าระบบ)
+// ==========================================
+// 🟢 เปลี่ยนเป็น true เมื่อต้องการปิดปรับปรุงระบบ เพื่อบล็อกการเข้าถึง Database
+const IS_MAINTENANCE_MODE = false; 
+const MAINTENANCE_MESSAGE = "กำลังดำเนินการอัปเกรดและเพิ่มฟีเจอร์ใหม่<br>กรุณากลับมาใช้งานอีกครั้งในภายหลังครับ";
+
+// ==========================================
 // NOTIFICATIONS & PWA BADGE LOGIC
 // ==========================================
 let autoFetchInterval = null;
@@ -261,8 +268,32 @@ function parseTicketDate(timestampStr) {
 // INITIALIZATION & LOGIN
 // ==========================================
 function render() { 
+    // 🟢 เช็คสถานะโหมดปิดปรับปรุง
+    if (typeof IS_MAINTENANCE_MODE !== 'undefined' && IS_MAINTENANCE_MODE) {
+        renderMaintenance();
+        return;
+    }
+
     if (!currentUser) renderLogin(); 
     else renderMainApp(); 
+}
+
+// 🟢 หน้าจอโหมดปิดปรับปรุงระบบ
+function renderMaintenance() {
+    const appDiv = document.getElementById('app');
+    if (appDiv) {
+        appDiv.innerHTML = `
+            <div class="flex-1 flex flex-col items-center justify-center bg-gray-50 p-6 fade-in h-full text-center">
+                <div class="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                    <i class="fa-solid fa-person-digging text-5xl text-orange-500"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">ระบบกำลังปิดปรับปรุง</h1>
+                <p class="text-gray-600 mb-8 text-sm">${MAINTENANCE_MESSAGE}</p>
+                <div class="loader loader-blue"></div>
+                <p class="text-xs text-gray-400 mt-8">Smart Label QC System</p>
+            </div>
+        `;
+    }
 }
 
 function renderLogin() {
@@ -1091,7 +1122,7 @@ function selectJobAndStartCamera() {
     currentSelectedBatch = getSelectedBatchValue();
 
     if(!currentSelectedJob) return showCustomAlert("กรุณาเลือก Job Order ก่อนครับ");
-    if(!currentSelectedBatch) return showCustomAlert("กรุณาเลือกหรือกรอกเลข Batch อ้างอิง ก่อนครับ");
+    if(!currentSelectedBatch || currentSelectedBatch === '[NET-ERR] ') return showCustomAlert("กรุณาเลือกหรือกรอกเลข Batch อ้างอิง ก่อนครับ");
 
     isDefectMode = false;
     renderMainApp();
@@ -1099,7 +1130,7 @@ function selectJobAndStartCamera() {
 
 function startDefectMode() {
     currentSelectedBatch = getSelectedBatchValue();
-    if(!currentSelectedBatch) return showCustomAlert("กรุณาเลือกหรือกรอกเลข Batch อ้างอิงที่ต้องการแจ้งเสียก่อนครับ");
+    if(!currentSelectedBatch || currentSelectedBatch === '[NET-ERR] ') return showCustomAlert("กรุณาเลือกหรือกรอกเลข Batch อ้างอิงที่ต้องการแจ้งเสียก่อนครับ");
     
     isDefectMode = true;
     currentSelectedJob = "DEFECT"; 
@@ -1568,6 +1599,12 @@ function renderTicketDetail(container) {
 // START APP & AUTH CHECK
 // ==========================================
 function initApp() {
+    // 🟢 เช็คสถานะโหมดปิดปรับปรุง
+    if (typeof IS_MAINTENANCE_MODE !== 'undefined' && IS_MAINTENANCE_MODE) {
+        render();
+        return;
+    }
+
     const savedUser = localStorage.getItem('qc_app_user');
     if (savedUser) {
         try {
