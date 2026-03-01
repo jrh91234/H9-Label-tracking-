@@ -12,7 +12,10 @@ function getBatchOptionsHTML() {
         } else {
             options = `<option value="">${t("-- เลือกเลข Batch ที่เพิ่งปริ้น --")}</option>` + dbBatches.map(b => {
                 let cleanDocName = b.docName ? b.docName.split('\\').pop().split('/').pop() : 'Unknown';
-                return `<option value="${b.batchNo}">${b.batchNo} (File: ${cleanDocName} | ${b.timestamp.split(' ')[1]})</option>`;
+                let printQtyText = b.printQty ? `| จำนวน: ${b.printQty} ` : ''; // 🟢 แสดงจำนวนดวง
+                
+                // ตัวอย่าง: B-260301-100000 (ไฟล์: label.pdf | จำนวน: 50 | 10:00:00)
+                return `<option value="${b.batchNo}">${b.batchNo} (ไฟล์: ${cleanDocName} ${printQtyText}| ${b.timestamp.split(' ')[1]})</option>`;
             }).join('');
         }
         options += `<option value="MANUAL" class="text-red-600 font-bold">${t("⚠️ ฉุกเฉิน: ไม่พบเลขในระบบ (กรอกเอง)")}</option>`;
