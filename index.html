@@ -2,7 +2,15 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 🟢 เพิ่ม viewport-fit=cover เพื่อให้รองรับรอยบากและขอบจอของมือถือรุ่นใหม่ๆ -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- 🟢 เพิ่ม Meta tags สำหรับบอก Android และ iOS ว่านี่คือแอปแบบเต็มจอ (PWA) -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#f3f4f6">
+
     <title>Smart Label QC</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -11,9 +19,10 @@
     <!-- ลิงก์ไฟล์ CSS หลัก -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="h-screen flex flex-col overflow-hidden text-gray-800">
+<!-- 🟢 เปลี่ยนจาก h-screen เป็น h-[100dvh] และใส่ fixed inset-0 เพื่อล็อกไม่ให้จอดันทะลุขอบล่างของ Android -->
+<body class="fixed inset-0 w-full h-[100dvh] flex flex-col overflow-hidden text-gray-800 bg-gray-100">
 
-    <div id="app" class="h-full w-full flex flex-col relative"></div>
+    <div id="app" class="h-full w-full flex flex-col relative overflow-hidden"></div>
 
     <!-- ลิงก์ไฟล์ JavaScript ตามลำดับ (แยก Module เพื่อให้โค้ดไม่อัดแน่น) -->
     <script src="js/state.js"></script>
