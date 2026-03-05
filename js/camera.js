@@ -140,16 +140,16 @@ function runSmartVerification(isFromInput = false) {
 
     let bYear = 0;
     try {
-        if (dateStr === "") messages.push(`<span class="text-yellow-600"><i class="fa-solid fa-triangle-exclamation text-xs"></i> ไม่พบวันที่ผลิต (อนุโลมให้ผ่าน)</span>`);
+        if (dateStr === "") messages.push(`<span class="text-yellow-600"><i class="fa-solid fa-triangle-exclamation text-xs"></i> ไม่พบวันที่ผลิต </span>`);
         else {
             const dateParts = dateStr.split('/'); if(dateParts.length !== 3) throw new Error();
             const pDate = parseInt(dateParts[0], 10); const pMonth = parseInt(dateParts[1], 10) - 1; bYear = parseInt(dateParts[2], 10);
             if (bYear < 2500 || bYear > 2600 || dateParts[0].length !== 2) throw new Error();
             const cYear = bYear - 543;
             if (cYear === currentYear && pMonth === currentMonth && pDate === currentDate) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันที่ผลิตตรงกับวันนี้ (ปัจจุบัน)</span>`);
-            else messages.push(`<span class="text-yellow-600 font-bold"><i class="fa-solid fa-triangle-exclamation text-xs"></i> วันที่ผลิตไม่ใช่วันนี้! (พบ: ${pDate}/${pMonth+1}/${bYear}) - อนุโลมให้ผ่าน</span>`);
+            else messages.push(`<span class="text-yellow-600 font-bold"><i class="fa-solid fa-triangle-exclamation text-xs"></i> วันที่ผลิตไม่ใช่วันนี้! (พบ: ${pDate}/${pMonth+1}/${bYear})</span>`);
         }
-    } catch (e) { messages.push(`<span class="text-yellow-600 font-bold"><i class="fa-solid fa-triangle-exclamation text-xs"></i> วันที่ผลิตผิดฟอร์แมต (DD/MM/YYYY พ.ศ.) - อนุโลมให้ผ่าน</span>`); }
+    } catch (e) { messages.push(`<span class="text-yellow-600 font-bold"><i class="fa-solid fa-triangle-exclamation text-xs"></i> วันที่ผลิตผิดฟอร์แมต (DD/MM/YYYY พ.ศ.)</span>`); }
 
     const lotParts = lot.split(/\s+/);
     if (lotParts.length >= 6 && lotParts[0] === 'TH') {
