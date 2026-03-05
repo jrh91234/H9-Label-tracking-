@@ -129,8 +129,10 @@ function runSmartVerification(isFromInput = false) {
     }
 
     const now = new Date(); const currentYear = now.getFullYear(); const currentMonth = now.getMonth(); const currentDate = now.getDate();
-    let currentDayOfWeek = now.getDay();
-    currentDayOfWeek = currentDayOfWeek === 0 ? 7 : currentDayOfWeek;
+    
+    // 🟢 คำนวณวันในสัปดาห์: 1=อาทิตย์, 2=จันทร์, 3=อังคาร ... 7=เสาร์
+    let currentDayOfWeek = now.getDay() + 1;
+    
     const targetNow = new Date(now.valueOf()); const dayNrNow = (now.getDay() + 6) % 7;
     targetNow.setDate(targetNow.getDate() - dayNrNow + 3); const firstThursdayNow = targetNow.valueOf();
     targetNow.setMonth(0, 1); if (targetNow.getDay() !== 4) { targetNow.setMonth(0, 1 + ((4 - targetNow.getDay()) + 7) % 7); }
