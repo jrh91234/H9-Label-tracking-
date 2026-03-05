@@ -75,19 +75,22 @@ window.toggleManualBatchInput = function() {
 function renderScanView(container) {
     if (!currentSelectedJob && !isDefectMode) {
         let jobOptions = "";
-        let isSelectDisabled = isLoadingJobs; // 🟢 ล็อกปุ่มเฉพาะตอนโหลด ถ้าโหลดเสร็จให้กดได้ (ไปติด Validation แทน)
+        let isSelectDisabled = false;
 
         if (isLoadingJobs) {
             jobOptions = `<option value="">${t("⏳ กำลังโหลดแผนจาก API...")}</option>`;
+            isSelectDisabled = true;
         } else {
-            jobOptions = `<option value="">${t("-- เลือก Job Order --")}</option>`;
-            if (dbJobs.length > 0) {
-                jobOptions += dbJobs.map(j => `<option value="${j.job}">${j.job} (Model: ${j.targetModel})</option>`).join('');
+            if (dbJobs.length === 0) {
+                jobOptions = `<option value="">${t("❌ ไม่พบ Job Order")}</option>`;
+                isSelectDisabled = true;
             } else {
-                jobOptions += `<option value="" disabled>❌ ${t("ไม่พบ Job Order ในระบบ")}</option>`;
+                // 🟢 เพิ่มการแสดงจำนวนเป้าหมาย (Target Qty) ต่อท้ายชื่อ Model
+                jobOptions = `<option value="">${t("-- เลือก Job Order --")}</option>` + dbJobs.map(j => {
+                    let targetText = j.targetQty ? ` | ${t("เป้าหมาย:")} ${j.targetQty}` : '';
+                    return `<option value="${j.job}">${j.job} (Model: ${j.targetModel}${targetText})</option>`;
+                }).join('');
             }
-            // 🟢 เพิ่มตัวเลือกกรอก Job Order ด้วยตนเอง
-            jobOptions += `<option value="MANUAL" class="text-orange-600 font-bold">${t("⚠️ ฉุกเฉิน: ไม่พบในแผน (กรอกเอง)")}</option>`;
         }
 
         container.innerHTML = `
