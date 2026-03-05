@@ -62,24 +62,22 @@ function captureImage() {
     .catch(err => { showCustomAlert("การประมวลผล AI ล้มเหลว: " + err.message); isProcessingOCR = false; capturedImageBase64 = null; renderMainApp(); });
 }
 
-// 🟢 ฟังก์ชันใหม่: ถ่ายรูปสำหรับโหมดงานเสีย (ไม่เรียก AI)
 function captureDefectImage() {
     const video = document.getElementById('video');
     if(!video || !video.videoWidth) return;
 
     const canvas = document.createElement('canvas');
     let width = video.videoWidth; let height = video.videoHeight;
-    const MAX_WIDTH = 800; // ย่อรูปเลยเพื่อให้โหลดเร็ว
+    const MAX_WIDTH = 800;
     if (width > MAX_WIDTH) { height = Math.floor(height * (MAX_WIDTH / width)); width = MAX_WIDTH; }
     canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0, width, height);
 
-    // เก็บภาพสีปกติ ไม่ต้องทำขาวดำ และไม่ต้องขึ้น Loading
     capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.8);
     isProcessingOCR = false; 
     
     stopCamera();
-    renderMainApp(); // ไปหน้ากรอกเหตุผลทันที
+    renderMainApp();
 }
 
 document.addEventListener('input', function(e) {
@@ -90,10 +88,11 @@ document.addEventListener('input', function(e) {
 
 function handleOCRResult(rawText) {
     isProcessingOCR = false;
-    const targetModel = dbJobs.find(j => j.job === currentSelectedJob)?.targetModel || "";
+    const jobObj = dbJobs.find(j => j.job === currentSelectedJob);
+    const targetModel = jobObj ? jobObj.targetModel : "";
     extractedModel = ""; extractedLot = ""; extractedDate = ""; extractedQty = "";
 
-    if (rawText.includes(targetModel)) extractedModel = targetModel;
+    if (targetModel !== "" && rawText.includes(targetModel)) extractedModel = targetModel;
     else { let mMatch = rawText.match(/[A-Z0-9-\/]{6,25}/); if(mMatch) extractedModel = mMatch[0]; }
 
     let lotMatch = rawText.match(/TH[\s-]*\d{2}[\s-]*\d{2}[\s-]*\d[\s-]*[a-zA-Z][\s-]*\d/i);
@@ -107,7 +106,7 @@ function handleOCRResult(rawText) {
 }
 
 function runSmartVerification(isFromInput = false) {
-    if (isDefectMode) return; // ข้ามการเช็คถ้าเป็นโหมดงานเสีย
+    if (isDefectMode) return;
     
     const modelEl = document.getElementById('ocr-model'); const lotEl = document.getElementById('ocr-lot');
     const dateEl = document.getElementById('ocr-date'); const qtyEl = document.getElementById('ocr-qty'); 
@@ -115,14 +114,23 @@ function runSmartVerification(isFromInput = false) {
     if (dateEl) extractedDate = dateEl.value; if (qtyEl) extractedQty = qtyEl.value; 
 
     const model = extractedModel.trim(); const lot = extractedLot.trim(); const dateStr = extractedDate.trim();
-    const targetModel = dbJobs.find(j => j.job === currentSelectedJob)?.targetModel || "";
+    const jobObj = dbJobs.find(j => j.job === currentSelectedJob);
+    const targetModel = jobObj ? jobObj.targetModel : ""; // ถ้ากรอก Job เอง อันนี้จะเป็น ""
     let isPass = true; let messages = [];
 
-    if (model === targetModel && model !== "") messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> Model ถูกต้อง (${targetModel})</span>`); 
-    else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> Model ผิด! (ต้องเป็น ${targetModel})</span>`); isPass = false; }
+    // 🟢 1. เช็ค Model (ปรับรองรับ Job ที่กรอกเอง)
+    if (targetModel === "") {
+        messages.push(`<span class="text-yellow-600"><i class="fa-solid fa-triangle-exclamation text-xs"></i> Job กรอกเอง: โปรดตรวจสอบ Model ด้วยตาเปล่า</span>`);
+    } else if (model === targetModel && model !== "") {
+        messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> Model ถูกต้อง (${targetModel})</span>`); 
+    } else { 
+        messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> Model ผิด! (ต้องเป็น ${targetModel})</span>`); 
+        isPass = false; 
+    }
 
     const now = new Date(); const currentYear = now.getFullYear(); const currentMonth = now.getMonth(); const currentDate = now.getDate();
-    let currentDayOfWeek = now.getDay() + 1; const dayNames = ["", "อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+    let currentDayOfWeek = now.getDay();
+    currentDayOfWeek = currentDayOfWeek === 0 ? 7 : currentDayOfWeek;
     const targetNow = new Date(now.valueOf()); const dayNrNow = (now.getDay() + 6) % 7;
     targetNow.setDate(targetNow.getDate() - dayNrNow + 3); const firstThursdayNow = targetNow.valueOf();
     targetNow.setMonth(0, 1); if (targetNow.getDay() !== 4) { targetNow.setMonth(0, 1 + ((4 - targetNow.getDay()) + 7) % 7); }
@@ -150,8 +158,8 @@ function runSmartVerification(isFromInput = false) {
         else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> ปีใน Lot (${lotYear}) ไม่ตรงปีปัจจุบัน (${expectedLotYear})</span>`); isPass = false; }
         if (lotWeek === currentWeek) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> สัปดาห์ใน Lot (${lotWeek}) ตรงสัปดาห์ปัจจุบัน</span>`);
         else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> สัปดาห์ Lot (${lotWeek}) ผิด (สัปดาห์นี้ = ${currentWeek})</span>`); isPass = false; }
-        if (lotDay === currentDayOfWeek) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันในสัปดาห์ (${lotDay}) ตรงกับวันนี้ (วัน${dayNames[currentDayOfWeek]})</span>`);
-        else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> วันในสัปดาห์ Lot (${lotDay}) ผิด! (วันนี้คือ ${currentDayOfWeek} = วัน${dayNames[currentDayOfWeek]})</span>`); isPass = false; }
+        if (lotDay === currentDayOfWeek) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันในสัปดาห์ (${lotDay}) ตรงกับวันนี้</span>`);
+        else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> วันในสัปดาห์ Lot (${lotDay}) ผิด! (วันนี้คือวันที่ ${currentDayOfWeek})</span>`); isPass = false; }
         
         if (lotShift === 'A' || lotShift === 'B') {
             const isAdmin = currentUser && currentUser.role === 'admin';
