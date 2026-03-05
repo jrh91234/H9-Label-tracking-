@@ -12,10 +12,8 @@ function getBatchOptionsHTML() {
         } else {
             options = `<option value="">${t("-- เลือกเลข Batch ที่เพิ่งปริ้น --")}</option>` + dbBatches.map(b => {
                 let cleanDocName = b.docName ? b.docName.split('\\').pop().split('/').pop() : 'Unknown';
-                let printQtyText = b.printQty ? `| จำนวน: ${b.printQty} ` : ''; // 🟢 แสดงจำนวนดวง
-                
-                // ตัวอย่าง: B-260301-100000 (ไฟล์: label.pdf | จำนวน: 50 | 10:00:00)
-                return `<option value="${b.batchNo}">${b.batchNo} (ไฟล์: ${cleanDocName} ${printQtyText}| ${b.timestamp.split(' ')[1]})</option>`;
+                let printQtyText = b.printQty ? `| จำนวน: ${b.printQty} ` : ''; 
+                return `<option value="${b.batchNo}">${b.batchNo} (File: ${cleanDocName} ${printQtyText}| ${b.timestamp.split(' ')[1]})</option>`;
             }).join('');
         }
         options += `<option value="MANUAL" class="text-red-600 font-bold">${t("⚠️ ฉุกเฉิน: ไม่พบเลขในระบบ (กรอกเอง)")}</option>`;
@@ -32,11 +30,23 @@ function updateBatchDropdownUI() {
             select.value = currentVal;
         }
     }
-    const defectBtn = document.getElementById('defect-mode-btn');
-    if (defectBtn && dbBatches) {
-         defectBtn.disabled = dbBatches.length === 0 && !document.getElementById('manual-batch-input')?.value;
-    }
 }
+
+// 🟢 ฟังก์ชันสำหรับเปิด/ปิด กล่องกรอกข้อมูล Job Order เอง
+window.toggleManualJobInput = function() {
+    const select = document.getElementById('job-selector');
+    const container = document.getElementById('manual-job-container');
+    const input = document.getElementById('manual-job-input');
+    
+    if (select && container && input) {
+        if (select.value === 'MANUAL') {
+            container.style.display = 'block';
+            input.focus();
+        } else {
+            container.style.display = 'none';
+        }
+    }
+};
 
 window.toggleManualBatchInput = function() {
     const select = document.getElementById('batch-selector');
@@ -65,18 +75,19 @@ window.toggleManualBatchInput = function() {
 function renderScanView(container) {
     if (!currentSelectedJob && !isDefectMode) {
         let jobOptions = "";
-        let isSelectDisabled = false;
+        let isSelectDisabled = isLoadingJobs; // 🟢 ล็อกปุ่มเฉพาะตอนโหลด ถ้าโหลดเสร็จให้กดได้ (ไปติด Validation แทน)
 
         if (isLoadingJobs) {
             jobOptions = `<option value="">${t("⏳ กำลังโหลดแผนจาก API...")}</option>`;
-            isSelectDisabled = true;
         } else {
-            if (dbJobs.length === 0) {
-                jobOptions = `<option value="">${t("❌ ไม่พบ Job Order")}</option>`;
-                isSelectDisabled = true;
+            jobOptions = `<option value="">${t("-- เลือก Job Order --")}</option>`;
+            if (dbJobs.length > 0) {
+                jobOptions += dbJobs.map(j => `<option value="${j.job}">${j.job} (Model: ${j.targetModel})</option>`).join('');
             } else {
-                jobOptions = `<option value="">${t("-- เลือก Job Order --")}</option>` + dbJobs.map(j => `<option value="${j.job}">${j.job} (Model: ${j.targetModel})</option>`).join('');
+                jobOptions += `<option value="" disabled>❌ ${t("ไม่พบ Job Order ในระบบ")}</option>`;
             }
+            // 🟢 เพิ่มตัวเลือกกรอก Job Order ด้วยตนเอง
+            jobOptions += `<option value="MANUAL" class="text-orange-600 font-bold">${t("⚠️ ฉุกเฉิน: ไม่พบในแผน (กรอกเอง)")}</option>`;
         }
 
         container.innerHTML = `
@@ -87,23 +98,30 @@ function renderScanView(container) {
                     </h2>
                     
                     <p class="text-xs text-gray-500 mb-1">${t("เลือก Job Order")}</p>
-                    <select id="job-selector" class="w-full p-3 border rounded-lg bg-gray-50 text-base font-bold mb-4 text-gray-800" ${isSelectDisabled ? 'disabled' : ''}>
+                    <select id="job-selector" onchange="toggleManualJobInput()" class="w-full p-3 border rounded-lg bg-gray-50 text-base font-bold mb-2 text-gray-800" ${isSelectDisabled ? 'disabled' : ''}>
                         ${jobOptions}
                     </select>
+                    
+                    <!-- 🟢 กล่องกรอกข้อมูล Job Order เอง -->
+                    <div id="manual-job-container" style="display: none;" class="mb-6 fade-in">
+                        <label class="block text-[10px] text-orange-500 uppercase font-bold mb-1"><i class="fa-solid fa-pen"></i> ${t("กรุณาระบุ Job Order ด้วยตนเอง")}</label>
+                        <input type="text" id="manual-job-input" class="w-full p-3 border-2 border-orange-300 rounded-lg bg-orange-50 text-orange-800 font-bold outline-none focus:border-orange-500 transition uppercase" placeholder="EX: JOB-99999">
+                    </div>
 
-                    <p class="text-xs text-blue-600 font-bold mb-1">
+                    <p class="text-xs text-blue-600 font-bold mb-1 mt-2">
                         <i class="fa-solid fa-print"></i> ${t("เลือกรหัสเครื่องปริ้น (Batch No)")}
                     </p>
                     <select id="batch-selector" onchange="toggleManualBatchInput()" class="w-full p-3 border-2 border-blue-200 rounded-lg bg-blue-50 text-base font-bold mb-2 text-blue-800" ${isSelectDisabled ? 'disabled' : ''}>
                         ${getBatchOptionsHTML()}
                     </select>
                     
+                    <!-- กล่องกรอกข้อมูล Batch ฉุกเฉิน -->
                     <div id="manual-batch-container" style="display: none;" class="mb-6 fade-in">
                         <label class="block text-[10px] text-red-500 uppercase font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> ${t("รหัสอ้างอิงสร้างอัตโนมัติเนื่องจาก Network ปลายทางขาดการเชื่อมต่อ")}</label>
                         <input type="text" id="manual-batch-input" class="w-full p-3 border-2 border-red-300 rounded-lg bg-red-50 text-red-800 font-bold outline-none focus:border-red-500 transition" placeholder="${t("พิมพ์เลข Batch / อ้างอิงฉุกเฉิน...")}">
                     </div>
 
-                    <div class="${isSelectDisabled ? 'mt-6' : ''} grid grid-cols-2 gap-2 mt-2">
+                    <div class="grid grid-cols-2 gap-2 mt-4">
                         <button onclick="selectJobAndStartCamera()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md transition disabled:opacity-50 flex flex-col justify-center items-center gap-1" ${isSelectDisabled ? 'disabled' : ''}>
                             <i class="fa-solid fa-camera text-xl"></i> 
                             <span class="text-sm">${t("สแกนปกติ")}</span>
@@ -120,7 +138,8 @@ function renderScanView(container) {
     }
 
     const jobObj = dbJobs.find(j => j.job === currentSelectedJob);
-    const targetModel = jobObj ? jobObj.targetModel : "Unknown";
+    // 🟢 ถ้าเป็น Job ที่กรอกมาเอง (หาไม่เจอในแผน) Model จะเป็นค่าว่าง ""
+    const targetModel = jobObj ? jobObj.targetModel : "";
 
     if (!capturedImageBase64 && !isProcessingOCR) {
         let shutterAction = isDefectMode ? "captureDefectImage()" : "captureImage()";
@@ -298,6 +317,15 @@ function renderScanView(container) {
     `;
 }
 
+// 🟢 ฟังก์ชันดึงค่า Job (รองรับการกรอกเอง)
+function getSelectedJobValue() {
+    let val = document.getElementById('job-selector') ? document.getElementById('job-selector').value : null;
+    if (val === 'MANUAL') {
+        val = document.getElementById('manual-job-input') ? document.getElementById('manual-job-input').value.trim().toUpperCase() : "";
+    }
+    return val;
+}
+
 function getSelectedBatchValue() {
     let val = document.getElementById('batch-selector') ? document.getElementById('batch-selector').value : null;
     if (val === 'MANUAL') {
@@ -307,11 +335,11 @@ function getSelectedBatchValue() {
 }
 
 function selectJobAndStartCamera() {
-    currentSelectedJob = document.getElementById('job-selector').value;
+    currentSelectedJob = getSelectedJobValue();
     currentSelectedBatch = getSelectedBatchValue();
 
-    if(!currentSelectedJob) return showCustomAlert(t("กรุณาเลือก Job Order ก่อนครับ"));
-    if(!currentSelectedBatch || currentSelectedBatch.includes('[NET-ERR] ') && currentSelectedBatch.trim() === '[NET-ERR]') return showCustomAlert(t("กรุณาเลือกหรือกรอกเลข Batch อ้างอิง ก่อนครับ"));
+    if(!currentSelectedJob) return showCustomAlert(t("กรุณาเลือกหรือกรอก Job Order ก่อนครับ"));
+    if(!currentSelectedBatch || currentSelectedBatch.includes('[NET-ERR]') && currentSelectedBatch.trim() === '[NET-ERR]') return showCustomAlert(t("กรุณาเลือกหรือกรอกเลข Batch อ้างอิง ก่อนครับ"));
 
     isDefectMode = false;
     renderMainApp();
@@ -319,7 +347,7 @@ function selectJobAndStartCamera() {
 
 function startDefectMode() {
     currentSelectedBatch = getSelectedBatchValue();
-    if(!currentSelectedBatch || currentSelectedBatch.includes('[NET-ERR] ') && currentSelectedBatch.trim() === '[NET-ERR]') return showCustomAlert(t("กรุณาเลือกหรือกรอกเลข Batch อ้างอิงที่ต้องการแจ้งเสียก่อนครับ"));
+    if(!currentSelectedBatch || currentSelectedBatch.includes('[NET-ERR]') && currentSelectedBatch.trim() === '[NET-ERR]') return showCustomAlert(t("กรุณาเลือกหรือกรอกเลข Batch อ้างอิงที่ต้องการแจ้งเสียก่อนครับ"));
     
     isDefectMode = true;
     currentSelectedJob = "DEFECT"; 
