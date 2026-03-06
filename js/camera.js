@@ -128,49 +128,131 @@ function runSmartVerification(isFromInput = false) {
         isPass = false; 
     }
 
-    const now = new Date(); const currentYear = now.getFullYear(); const currentMonth = now.getMonth(); const currentDate = now.getDate();
+    // 🟢 2. กำหนดช่วงวันที่ที่เป็นไปได้ (Production Date) ตามกะการทำงาน
+    const now = new Date(); 
+    const currentHour = now.getHours();
     
-    // 🟢 คำนวณวันในสัปดาห์: 1=อาทิตย์, 2=จันทร์, 3=อังคาร ... 7=เสาร์
-    let currentDayOfWeek = now.getDay() + 1;
-    
-    const targetNow = new Date(now.valueOf()); const dayNrNow = (now.getDay() + 6) % 7;
-    targetNow.setDate(targetNow.getDate() - dayNrNow + 3); const firstThursdayNow = targetNow.valueOf();
-    targetNow.setMonth(0, 1); if (targetNow.getDay() !== 4) { targetNow.setMonth(0, 1 + ((4 - targetNow.getDay()) + 7) % 7); }
-    const currentWeek = 1 + Math.ceil((firstThursdayNow - targetNow) / 604800000); const expectedLotYear = currentYear % 100;
+    let possibleDates = [];
+    let defaultDate = new Date(now);
 
-    let bYear = 0;
+    // กะเช้า 08:00 - 17:00 (OT ถึง 22:00)
+    // กะดึก 20:00 - 05:00 (OT ถึง 10:00)
+    
+    if (currentHour < 8) {
+        // ช่วง 00:00 - 07:59 (เป็นงานของกะดึกเมื่อวานแน่นอน)
+        defaultDate.setDate(defaultDate.getDate() - 1);
+        possibleDates.push(new Date(defaultDate));
+    } else if (currentHour < 10) {
+        // ช่วง 08:00 - 09:59 (เวลาทับซ้อน: อาจจะกะเช้าเริ่มงานวันนี้ หรือกะดึกทำ OT ของเมื่อวาน)
+        let yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        possibleDates.push(new Date(now)); // ยอมรับของวันนี้
+        possibleDates.push(yesterday);     // ยอมรับของเมื่อวานด้วย
+    } else {
+        // ช่วง 10:00 - 23:59 (เป็นงานของวันนี้แน่นอน)
+        possibleDates.push(new Date(now));
+    }
+
+    // 🟢 3. ตรวจสอบ วันที่ผลิต (Date) บนฉลาก
+    let isDateValid = false;
+    let effectiveDate = defaultDate; // จะใช้วันที่นี้ไปคำนวณ Lot (Week/Day) ต่อ
+
     try {
-        if (dateStr === "") messages.push(`<span class="text-yellow-600"><i class="fa-solid fa-triangle-exclamation text-xs"></i> ไม่พบวันที่ผลิต </span>`);
-        else {
-            const dateParts = dateStr.split('/'); if(dateParts.length !== 3) throw new Error();
-            const pDate = parseInt(dateParts[0], 10); const pMonth = parseInt(dateParts[1], 10) - 1; bYear = parseInt(dateParts[2], 10);
-            if (bYear < 2500 || bYear > 2600 || dateParts[0].length !== 2) throw new Error();
-            const cYear = bYear - 543;
-            if (cYear === currentYear && pMonth === currentMonth && pDate === currentDate) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันที่ผลิตตรงกับวันนี้ (ปัจจุบัน)</span>`);
-            else messages.push(`<span class="text-yellow-600 font-bold"><i class="fa-solid fa-triangle-exclamation text-xs"></i> วันที่ผลิตไม่ใช่วันนี้! (พบ: ${pDate}/${pMonth+1}/${bYear})</span>`);
-        }
-    } catch (e) { messages.push(`<span class="text-yellow-600 font-bold"><i class="fa-solid fa-triangle-exclamation text-xs"></i> วันที่ผลิตผิดฟอร์แมต (DD/MM/YYYY พ.ศ.)</span>`); }
+        if (!dateStr) throw new Error("empty");
+        const dateParts = dateStr.split('/');
+        if(dateParts.length !== 3) throw new Error("format");
+        
+        const pDate = parseInt(dateParts[0], 10);
+        const pMonth = parseInt(dateParts[1], 10) - 1;
+        const bYear = parseInt(dateParts[2], 10);
+        
+        if (bYear < 2500 || bYear > 2600 || dateParts[0].length !== 2) throw new Error("format");
+        const cYear = bYear - 543;
 
+        // ตรวจสอบว่าวันที่บนฉลาก ตรงกับวันใดวันหนึ่งที่เป็นไปได้หรือไม่
+        for (let pd of possibleDates) {
+            if (cYear === pd.getFullYear() && pMonth === pd.getMonth() && pDate === pd.getDate()) {
+                isDateValid = true;
+                effectiveDate = pd; // ใช้วันที่ที่แมตช์เจอ ไปใช้คำนวณ Lot
+                break;
+            }
+        }
+
+        if (isDateValid) {
+            messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันที่ผลิตถูกต้อง (ตรงกับกะทำงาน)</span>`);
+        } else {
+            messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> วันที่ผลิตไม่ถูกต้อง! (ไม่อยู่ในกะการทำงาน)</span>`);
+            isPass = false;
+        }
+    } catch (e) { 
+        messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> วันที่ผลิตผิดฟอร์แมต (DD/MM/YYYY พ.ศ.)</span>`); 
+        isPass = false; 
+    }
+
+    // 🟢 4. คำนวณสัปดาห์และวันในสัปดาห์ (จาก effectiveDate ที่ผ่านการตรวจสอบแล้ว)
+    const currentYear = effectiveDate.getFullYear(); 
+    
+    let currentDayOfWeek = effectiveDate.getDay(); // 0=อาทิตย์, 1=จันทร์ ... 6=เสาร์
+    currentDayOfWeek = currentDayOfWeek + 1; // แปลงให้ 1=อาทิตย์, 2=จันทร์, 7=เสาร์
+    
+    const targetNow = new Date(effectiveDate.valueOf()); 
+    const dayNrNow = (effectiveDate.getDay() + 6) % 7;
+    targetNow.setDate(targetNow.getDate() - dayNrNow + 3); 
+    const firstThursdayNow = targetNow.valueOf();
+    targetNow.setMonth(0, 1); 
+    if (targetNow.getDay() !== 4) { targetNow.setMonth(0, 1 + ((4 - targetNow.getDay()) + 7) % 7); }
+    const currentWeek = 1 + Math.ceil((firstThursdayNow - targetNow) / 604800000); 
+    const expectedLotYear = currentYear % 100;
+
+    // 🟢 5. ตรวจสอบ Lot No
     const lotParts = lot.split(/\s+/);
     if (lotParts.length >= 6 && lotParts[0] === 'TH') {
-        const lotYear = parseInt(lotParts[1], 10); const lotWeek = parseInt(lotParts[2], 10);
-        const lotDay = parseInt(lotParts[3], 10); const lotShift = lotParts[4].toUpperCase();
+        const lotYear = parseInt(lotParts[1], 10); 
+        const lotWeek = parseInt(lotParts[2], 10);
+        const lotDay = parseInt(lotParts[3], 10); 
+        const lotTeam = lotParts[4].toUpperCase(); // ดึงตัวอักษรทีม (A/B)
 
-        if (lotYear === expectedLotYear) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> ปีใน Lot (${lotYear}) ตรงกับปีปัจจุบัน</span>`);
-        else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> ปีใน Lot (${lotYear}) ไม่ตรงปีปัจจุบัน (${expectedLotYear})</span>`); isPass = false; }
-        if (lotWeek === currentWeek) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> สัปดาห์ใน Lot (${lotWeek}) ตรงสัปดาห์ปัจจุบัน</span>`);
-        else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> สัปดาห์ Lot (${lotWeek}) ผิด (สัปดาห์นี้ = ${currentWeek})</span>`); isPass = false; }
-        if (lotDay === currentDayOfWeek) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันในสัปดาห์ (${lotDay}) ตรงกับวันนี้</span>`);
-        else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> วันในสัปดาห์ Lot (${lotDay}) ผิด! (วันนี้คือวันที่ ${currentDayOfWeek})</span>`); isPass = false; }
+        if (lotYear === expectedLotYear) {
+            messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> ปีใน Lot (${lotYear}) ถูกต้อง</span>`);
+        } else { 
+            messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> ปีใน Lot (${lotYear}) ผิด (ต้องเป็น ${expectedLotYear})</span>`); 
+            isPass = false; 
+        }
         
-        if (lotShift === 'A' || lotShift === 'B') {
+        if (lotWeek === currentWeek) {
+            messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> สัปดาห์ใน Lot (${lotWeek}) ถูกต้อง</span>`);
+        } else { 
+            messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> สัปดาห์ใน Lot (${lotWeek}) ผิด (ต้องเป็น ${currentWeek})</span>`); 
+            isPass = false; 
+        }
+        
+        if (lotDay === currentDayOfWeek) {
+            messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันในสัปดาห์ (${lotDay}) ถูกต้อง</span>`);
+        } else { 
+            messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> วันในสัปดาห์ใน Lot (${lotDay}) ผิด (ต้องเป็น ${currentDayOfWeek})</span>`); 
+            isPass = false; 
+        }
+        
+        // เช็คทีม (A หรือ B)
+        if (lotTeam === 'A' || lotTeam === 'B') {
             const isAdmin = currentUser && currentUser.role === 'admin';
-            const isShiftMatch = currentUser && currentUser.name.toUpperCase().includes(lotShift);
-            if (isAdmin) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> กะใน Lot (${lotShift}) (อนุญาตสิทธิ์ Admin)</span>`);
-            else if (isShiftMatch) messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> กะใน Lot (${lotShift}) ตรงกับชื่อผู้สแกน</span>`);
-            else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> กะใน Lot (${lotShift}) ไม่ตรงสิทธิ์ผู้สแกน</span>`); isPass = false; }
-        } else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> กะต้องเป็น A หรือ B (พบ: ${lotShift})</span>`); isPass = false; }
-    } else { messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> Lot No ผิดฟอร์แมต หรืออ่านได้ไม่ครบ</span>`); isPass = false; }
+            const isTeamMatch = currentUser && currentUser.name.toUpperCase().includes(lotTeam);
+            if (isAdmin) {
+                messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> ทีมใน Lot (${lotTeam}) (อนุญาตสิทธิ์ Admin)</span>`);
+            } else if (isTeamMatch) {
+                messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> ทีมใน Lot (${lotTeam}) ตรงกับผู้สแกน</span>`);
+            } else { 
+                messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> ทีมใน Lot (${lotTeam}) ไม่ตรงกับผู้สแกน</span>`); 
+                isPass = false; 
+            }
+        } else { 
+            messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> ทีมต้องเป็น A หรือ B (พบ: ${lotTeam})</span>`); 
+            isPass = false; 
+        }
+    } else { 
+        messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> Lot No ผิดฟอร์แมต หรืออ่านได้ไม่ครบ</span>`); 
+        isPass = false; 
+    }
 
     verificationResult = { isPass, messages };
 
