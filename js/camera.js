@@ -95,8 +95,19 @@ function handleOCRResult(rawText) {
     if (targetModel !== "" && rawText.includes(targetModel)) extractedModel = targetModel;
     else { let mMatch = rawText.match(/[A-Z0-9-\/]{6,25}/); if(mMatch) extractedModel = mMatch[0]; }
 
-    let lotMatch = rawText.match(/TH[\s-]*\d{2}[\s-]*\d{2}[\s-]*\d[\s-]*[a-zA-Z][\s-]*\d/i);
-    if(lotMatch) extractedLot = lotMatch[0].toUpperCase().replace(/\s+/g, '').replace(/TH(\d{2})(\d{2})(\d)([A-Z])(\d)/, 'TH $1 $2 $3 $4 $5');
+    // 🟢 ตรวจจับ Lot ได้ทั้ง 2 รูปแบบ (แบบเก่า TH 26 11 2 A 1 และแบบใหม่ TH-2026-W11-2-A)
+    let lotMatchNew = rawText.match(/TH[\s-]*\d{4}[\s-]*W[\s-]*\d{2}[\s-]*\d[\s-]*[a-zA-Z]/i);
+    let lotMatchOld = rawText.match(/TH[\s-]*\d{2}[\s-]*\d{2}[\s-]*\d[\s-]*[a-zA-Z][\s-]*\d/i);
+
+    if (lotMatchNew) {
+        // จัดฟอร์แมตแบบใหม่ -> TH-2026-W11-2-A
+        let rawLot = lotMatchNew[0].toUpperCase().replace(/[\s-]+/g, ''); 
+        extractedLot = rawLot.replace(/TH(\d{4})W(\d{2})(\d)([A-Z])/, 'TH-$1-W$2-$3-$4');
+    } else if (lotMatchOld) {
+        // จัดฟอร์แมตแบบเก่า -> TH 26 11 2 A 1
+        let rawLot = lotMatchOld[0].toUpperCase().replace(/[\s-]+/g, ''); 
+        extractedLot = rawLot.replace(/TH(\d{2})(\d{2})(\d)([A-Z])(\d)/, 'TH $1 $2 $3 $4 $5');
+    }
 
     let dateMatch = rawText.match(/\d{2}\/\d{2}\/\d{4}/);
     if(dateMatch) extractedDate = dateMatch[0];
@@ -204,18 +215,42 @@ function runSmartVerification(isFromInput = false) {
     const currentWeek = 1 + Math.ceil((firstThursdayNow - targetNow) / 604800000); 
     const expectedLotYear = currentYear % 100;
 
-    // 🟢 5. ตรวจสอบ Lot No
-    const lotParts = lot.split(/\s+/);
-    if (lotParts.length >= 6 && lotParts[0] === 'TH') {
-        const lotYear = parseInt(lotParts[1], 10); 
-        const lotWeek = parseInt(lotParts[2], 10);
-        const lotDay = parseInt(lotParts[3], 10); 
-        const lotTeam = lotParts[4].toUpperCase(); // ดึงตัวอักษรทีม (A/B)
+    // 🟢 5. ตรวจสอบ Lot No (รองรับ 2 Format แบบชาญฉลาด)
+    let isLotValidFormat = false;
+    let lotYear = 0, lotWeek = 0, lotDay = 0, lotTeam = "";
+    let isNewFormat = false;
 
-        if (lotYear === expectedLotYear) {
+    if (lot.includes('-W')) {
+        // แตกข้อมูล Lot แบบใหม่: TH-2026-W11-2-A
+        const lotParts = lot.split('-');
+        if (lotParts.length >= 5 && lotParts[0] === 'TH') {
+            lotYear = parseInt(lotParts[1], 10); // เช่น 2026
+            lotWeek = parseInt(lotParts[2].replace('W', ''), 10); // เช่น 11
+            lotDay = parseInt(lotParts[3], 10); // เช่น 2
+            lotTeam = lotParts[4].toUpperCase(); // เช่น A
+            isNewFormat = true;
+            isLotValidFormat = true;
+        }
+    } else {
+        // แตกข้อมูล Lot แบบเก่า: TH 26 11 2 A 1
+        const lotParts = lot.split(/\s+/);
+        if (lotParts.length >= 5 && lotParts[0] === 'TH') {
+            lotYear = parseInt(lotParts[1], 10); // เช่น 26
+            lotWeek = parseInt(lotParts[2], 10);
+            lotDay = parseInt(lotParts[3], 10);
+            lotTeam = lotParts[4].toUpperCase();
+            isLotValidFormat = true;
+        }
+    }
+
+    if (isLotValidFormat) {
+        // ถ้าเป็นแบบใหม่ ให้เทียบกับปีเต็ม (2026) ถ้าเป็นแบบเก่า เทียบกับเลข 2 หลัก (26)
+        let targetYearForLot = isNewFormat ? currentYear : expectedLotYear;
+
+        if (lotYear === targetYearForLot) {
             messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> ปีใน Lot (${lotYear}) ถูกต้อง</span>`);
         } else { 
-            messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> ปีใน Lot (${lotYear}) ผิด (ต้องเป็น ${expectedLotYear})</span>`); 
+            messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> ปีใน Lot (${lotYear}) ผิด (ต้องเป็น ${targetYearForLot})</span>`); 
             isPass = false; 
         }
         
@@ -229,14 +264,14 @@ function runSmartVerification(isFromInput = false) {
         if (lotDay === currentDayOfWeek) {
             messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันในสัปดาห์ (${lotDay}) ถูกต้อง</span>`);
         } else { 
-            messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> วันในสัปดาห์ใน Lot (${lotDay}) ผิด (ต้องเป็น ${currentDayOfWeek})</span>`); 
+            messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> วันในสัปดาห์ Lot (${lotDay}) ผิด (วันนี้คือวันที่ ${currentDayOfWeek})</span>`); 
             isPass = false; 
         }
         
         // เช็คทีม (A หรือ B)
         if (lotTeam === 'A' || lotTeam === 'B') {
-            const isAdmin = currentUser && currentUser.role === 'admin';
-            const isTeamMatch = currentUser && currentUser.name.toUpperCase().includes(lotTeam);
+            const isAdmin = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'admin';
+            const isTeamMatch = typeof currentUser !== 'undefined' && currentUser && currentUser.name.toUpperCase().includes(lotTeam);
             if (isAdmin) {
                 messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> ทีมใน Lot (${lotTeam}) (อนุญาตสิทธิ์ Admin)</span>`);
             } else if (isTeamMatch) {
