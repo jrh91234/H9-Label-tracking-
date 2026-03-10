@@ -164,43 +164,47 @@ function runSmartVerification(isFromInput = false) {
         possibleDates.push(new Date(now));
     }
 
-    // 🟢 3. ตรวจสอบ วันที่ผลิต (Date) บนฉลาก
+    // 🟢 3. ตรวจสอบ วันที่ผลิต (Date) บนฉลาก (ปรับแก้ไม่ให้บล็อกการส่ง)
     let isDateValid = false;
     let effectiveDate = defaultDate; // จะใช้วันที่นี้ไปคำนวณ Lot (Week/Day) ต่อ
 
     try {
-        if (!dateStr) throw new Error("empty");
-        const dateParts = dateStr.split('/');
-        if(dateParts.length !== 3) throw new Error("format");
-        
-        const pDate = parseInt(dateParts[0], 10);
-        const pMonth = parseInt(dateParts[1], 10) - 1;
-        const bYear = parseInt(dateParts[2], 10);
-        
-        if (bYear < 2500 || bYear > 2600 || dateParts[0].length !== 2) throw new Error("format");
-        const cYear = bYear - 543;
-
-        // ตรวจสอบว่าวันที่บนฉลาก ตรงกับวันใดวันหนึ่งที่เป็นไปได้หรือไม่
-        for (let pd of possibleDates) {
-            if (cYear === pd.getFullYear() && pMonth === pd.getMonth() && pDate === pd.getDate()) {
-                isDateValid = true;
-                effectiveDate = pd; // ใช้วันที่ที่แมตช์เจอ ไปใช้คำนวณ Lot
-                break;
-            }
-        }
-
-        if (isDateValid) {
-            messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันที่ผลิตถูกต้อง (ตรงกับกะทำงาน)</span>`);
+        if (!dateStr) {
+             // ถ้าว่าง ให้แค่เตือน
+             messages.push(`<span class="text-yellow-600 font-bold"><i class="fa-solid fa-triangle-exclamation text-xs"></i> ตรวจไม่พบวันที่ผลิตบนฉลาก</span>`);
         } else {
-            messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> วันที่ผลิตไม่ถูกต้อง! (ไม่อยู่ในกะการทำงาน)</span>`);
-            isPass = false;
+             const dateParts = dateStr.split('/');
+             if(dateParts.length !== 3) throw new Error("format");
+             
+             const pDate = parseInt(dateParts[0], 10);
+             const pMonth = parseInt(dateParts[1], 10) - 1;
+             const bYear = parseInt(dateParts[2], 10);
+             
+             if (bYear < 2500 || bYear > 2600 || dateParts[0].length !== 2) throw new Error("format");
+             const cYear = bYear - 543;
+     
+             // ตรวจสอบว่าวันที่บนฉลาก ตรงกับวันใดวันหนึ่งที่เป็นไปได้หรือไม่
+             for (let pd of possibleDates) {
+                 if (cYear === pd.getFullYear() && pMonth === pd.getMonth() && pDate === pd.getDate()) {
+                     isDateValid = true;
+                     effectiveDate = pd; // ใช้วันที่ที่แมตช์เจอ ไปใช้คำนวณ Lot
+                     break;
+                 }
+             }
+     
+             if (isDateValid) {
+                 messages.push(`<span class="text-green-600"><i class="fa-solid fa-check text-xs"></i> วันที่ผลิตถูกต้อง (ตรงกับกะทำงาน)</span>`);
+             } else {
+                 // ถ้ามีวันที่แต่อาจจะผิดวัน ก็แค่เตือน
+                 messages.push(`<span class="text-yellow-600 font-bold"><i class="fa-solid fa-triangle-exclamation text-xs"></i> วันที่ผลิตอาจจะไม่ตรงกะการทำงานปัจจุบัน (พบ: ${dateStr})</span>`);
+             }
         }
     } catch (e) { 
-        messages.push(`<span class="text-red-600 font-bold"><i class="fa-solid fa-xmark text-xs"></i> วันที่ผลิตผิดฟอร์แมต (DD/MM/YYYY พ.ศ.)</span>`); 
-        isPass = false; 
+        // ถ้าผิดฟอร์แมต ก็แค่เตือนเช่นกัน
+        messages.push(`<span class="text-yellow-600 font-bold"><i class="fa-solid fa-triangle-exclamation text-xs"></i> วันที่ผลิตอาจจะผิดรูปแบบ หรืออ่านค่าไม่ได้</span>`); 
     }
 
-    // 🟢 4. คำนวณสัปดาห์และวันในสัปดาห์ (จาก effectiveDate ที่ผ่านการตรวจสอบแล้ว)
+    // 🟢 4. คำนวณสัปดาห์และวันในสัปดาห์ (จาก effectiveDate ที่ผ่านการตรวจสอบแล้ว หรือใช้ defaultDate ถ้าตรวจสอบไม่ผ่าน)
     const currentYear = effectiveDate.getFullYear(); 
     
     let currentDayOfWeek = effectiveDate.getDay(); // 0=อาทิตย์, 1=จันทร์ ... 6=เสาร์
