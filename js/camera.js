@@ -210,13 +210,17 @@ function runSmartVerification(isFromInput = false) {
     let currentDayOfWeek = effectiveDate.getDay(); // 0=อาทิตย์, 1=จันทร์ ... 6=เสาร์
     currentDayOfWeek = currentDayOfWeek + 1; // แปลงให้ 1=อาทิตย์, 2=จันทร์, 7=เสาร์
     
-    const targetNow = new Date(effectiveDate.valueOf()); 
-    const dayNrNow = (effectiveDate.getDay() + 6) % 7;
-    targetNow.setDate(targetNow.getDate() - dayNrNow + 3); 
-    const firstThursdayNow = targetNow.valueOf();
-    targetNow.setMonth(0, 1); 
-    if (targetNow.getDay() !== 4) { targetNow.setMonth(0, 1 + ((4 - targetNow.getDay()) + 7) % 7); }
-    const currentWeek = 1 + Math.ceil((firstThursdayNow - targetNow) / 604800000); 
+    // คำนวณสัปดาห์โดยใช้วันอาทิตย์เป็นวันแรกของสัปดาห์
+    const startOfYear = new Date(effectiveDate.getFullYear(), 0, 1);
+    const startOfYearDay = startOfYear.getDay(); // 0=อาทิตย์
+    // หาวันอาทิตย์แรกของปี (หรือก่อนปี ถ้า 1 ม.ค. ไม่ใช่วันอาทิตย์)
+    const firstSunday = new Date(startOfYear);
+    if (startOfYearDay !== 0) {
+        firstSunday.setDate(firstSunday.getDate() - startOfYearDay);
+    }
+    const diffMs = effectiveDate.getTime() - firstSunday.getTime();
+    const diffDays = Math.floor(diffMs / 86400000);
+    const currentWeek = Math.floor(diffDays / 7) + 1; 
     const expectedLotYear = currentYear % 100;
 
     // 🟢 5. ตรวจสอบ Lot No (รองรับ 2 Format แบบชาญฉลาด)
