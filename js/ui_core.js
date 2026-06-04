@@ -385,9 +385,19 @@ function fetchInitialData() {
 
 function fetchTickets() {
     fetch(`${API_URL}?action=getTickets`).then(res => res.json()).then(data => {
-        dbTickets = data || []; updateBadgeAndNotify(dbTickets); 
+        dbTickets = data || []; updateBadgeAndNotify(dbTickets);
         if(currentTab === 'inbox' || currentTab === 'dashboard') renderMainApp();
     }).catch(err => console.error("Error fetching inbox: ", err));
+}
+
+function fetchTicketsWithDateRange() {
+    let url = `${API_URL}?action=getTickets`;
+    if (inboxStartDate) url += `&startDate=${inboxStartDate}`;
+    if (inboxEndDate) url += `&endDate=${inboxEndDate}`;
+    fetch(url).then(res => res.json()).then(data => {
+        dbTickets = data || []; updateBadgeAndNotify(dbTickets);
+        if (typeof updateInboxListUI === 'function') updateInboxListUI();
+    }).catch(err => console.error("Error fetching tickets: ", err));
 }
 
 function fetchPeriodicData(forceRender = false) {
