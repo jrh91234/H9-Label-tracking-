@@ -401,8 +401,11 @@ function fetchTicketsWithDateRange() {
 }
 
 function fetchPeriodicData(forceRender = false) {
+    let ticketUrl = `${API_URL}?action=getTickets`;
+    if (typeof inboxStartDate !== 'undefined' && inboxStartDate) ticketUrl += `&startDate=${inboxStartDate}`;
+    if (typeof inboxEndDate !== 'undefined' && inboxEndDate) ticketUrl += `&endDate=${inboxEndDate}`;
     Promise.all([
-        fetch(`${API_URL}?action=getTickets`).then(res => res.json()).catch(() => null),
+        fetch(ticketUrl).then(res => res.json()).catch(() => null),
         fetch(`${API_URL}?action=getBatches`).then(res => res.json()).catch(() => null)
     ]).then(([ticketsData, batchesData]) => {
         let ticketsChanged = false; let batchesChanged = false;
