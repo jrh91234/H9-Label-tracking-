@@ -3,8 +3,8 @@
 // ==========================================
 let currentInboxFilter = 'pending'; 
 let inboxSearchTerm = ''; 
-let inboxStartDate = getTodayDateString(); 
-let inboxEndDate = getTodayDateString();   
+let inboxStartDate = '';
+let inboxEndDate = '';   
 
 function setInboxFilter(filter) { 
     currentInboxFilter = filter; 
@@ -20,11 +20,11 @@ function executeInboxSearch() {
 }
 
 function executeInboxDateFilter() {
-    const startInput = document.getElementById('inbox-start-date'); 
+    const startInput = document.getElementById('inbox-start-date');
     const endInput = document.getElementById('inbox-end-date');
-    if (startInput) inboxStartDate = startInput.value; 
-    if (endInput) inboxEndDate = endInput.value; 
-    updateInboxListUI(); 
+    if (startInput) inboxStartDate = startInput.value;
+    if (endInput) inboxEndDate = endInput.value;
+    fetchTicketsWithDateRange();
 }
 
 function getInboxListHTML() {
