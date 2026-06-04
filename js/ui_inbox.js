@@ -43,8 +43,8 @@ function getInboxListHTML() {
     let displayTickets = baseTickets.filter(t => currentInboxFilter === 'pending' ? t.status === 'pending' : t.status !== 'pending');
 
     if (inboxSearchTerm) {
-        displayTickets = displayTickets.filter(t => 
-            t.jobOrder.toLowerCase().includes(inboxSearchTerm) || t.model.toLowerCase().includes(inboxSearchTerm) || t.lot.toLowerCase().includes(inboxSearchTerm)
+        displayTickets = displayTickets.filter(t =>
+            String(t.jobOrder || '').toLowerCase().includes(inboxSearchTerm) || String(t.model || '').toLowerCase().includes(inboxSearchTerm) || String(t.lot || '').toLowerCase().includes(inboxSearchTerm)
         );
     }
     
@@ -67,7 +67,8 @@ function getInboxListHTML() {
                        : `<i class="fa-solid fa-times-circle"></i> ${t('ปฏิเสธ')}`;
                        
         let cleanTime = formatDisplayDate(tck.timestamp).split(' ')[1] || formatDisplayDate(tck.timestamp);
-        let jobDisplay = tck.jobOrder.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${tck.jobOrder.replace('[TEST] ', '')}` : tck.jobOrder;
+        let jobStr = String(tck.jobOrder || '');
+        let jobDisplay = jobStr.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${jobStr.replace('[TEST] ', '')}` : jobStr;
 
         html += `
             <div onclick="openTicket('${tck.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${tck.status === 'pending' ? 'border-yellow-500' : tck.status === 'approved' ? 'border-green-500' : tck.status === 'defect' ? 'border-gray-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3 transition">
