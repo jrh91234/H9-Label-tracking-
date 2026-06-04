@@ -20,7 +20,9 @@ function doGet(e) {
         return createJsonResponse(getActiveJobsForQC());
     }
     if (action === "getTickets") {
-        return createJsonResponse(getQCTickets());
+        var startDate = e.parameter ? e.parameter.startDate : null;
+        var endDate = e.parameter ? e.parameter.endDate : null;
+        return createJsonResponse(getQCTickets(startDate, endDate));
     }
     if (action === "getUsers") {
         return createJsonResponse(getUsers()); 
@@ -359,37 +361,63 @@ function saveDefectTicket(data) {
   return { id: newId, status: "success" };
 }
 
-function getQCTickets() {
+function getQCTickets(startDate, endDate) {
   var sheet = getOrCreateQCSheet();
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-  
-  var startRow = Math.max(2, lastRow - 49); 
-  var numRows = lastRow - startRow + 1;
-  var data = sheet.getRange(startRow, 1, numRows, 14).getValues(); 
-  
+
+  var hasDateFilter = (startDate && endDate);
+  var startRow, numRows;
+
+  if (hasDateFilter) {
+    startRow = 2;
+    numRows = lastRow - 1;
+  } else {
+    startRow = Math.max(2, lastRow - 49);
+    numRows = lastRow - startRow + 1;
+  }
+
+  var data = sheet.getRange(startRow, 1, numRows, 14).getValues();
+
   var parseDateString = function(val, isTimeMode) {
     if (val instanceof Date) return Utilities.formatDate(val, "GMT+7", isTimeMode ? "dd/MM/yyyy HH:mm:ss" : "dd/MM/yyyy");
     return val ? String(val) : "";
   };
 
+  var toComparableDate = function(val) {
+    if (val instanceof Date) return Utilities.formatDate(val, "GMT+7", "yyyy-MM-dd");
+    var s = String(val).replace(/^'/, "");
+    if (s.indexOf('/') !== -1) {
+      var parts = s.split(' ')[0].split('/');
+      if (parts.length === 3) return parts[2] + "-" + ("0" + parts[1]).slice(-2) + "-" + ("0" + parts[0]).slice(-2);
+    }
+    if (s.indexOf('-') !== -1) return s.split('T')[0];
+    return null;
+  };
+
   var tickets = [];
   for (var i = data.length - 1; i >= 0; i--) {
     var row = data[i];
+
+    if (hasDateFilter) {
+      var ticketDate = toComparableDate(row[1]);
+      if (ticketDate && (ticketDate < startDate || ticketDate > endDate)) continue;
+    }
+
     tickets.push({
-      id: row[0], 
-      timestamp: parseDateString(row[1], true), 
-      jobOrder: row[2], 
+      id: row[0],
+      timestamp: parseDateString(row[1], true),
+      jobOrder: row[2],
       model: row[3],
-      lot: row[4], 
-      date: parseDateString(row[5], false), 
-      operator: row[6], 
+      lot: row[4],
+      date: parseDateString(row[5], false),
+      operator: row[6],
       status: row[7],
-      qc: row[8], 
-      actionTime: parseDateString(row[9], true), 
+      qc: row[8],
+      actionTime: parseDateString(row[9], true),
       rejectReason: row[10],
-      imageUrl: row[11], 
-      qty: row[12], 
+      imageUrl: row[11],
+      qty: row[12],
       batchNo: row[13]
     });
   }
