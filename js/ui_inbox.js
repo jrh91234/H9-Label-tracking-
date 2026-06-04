@@ -11,12 +11,13 @@ function setInboxFilter(filter) {
     updateInboxListUI(); 
 }
 
-function executeInboxSearch() { 
-    const input = document.getElementById('inbox-search-input'); 
-    if (input) { 
-        inboxSearchTerm = input.value.trim().toLowerCase(); 
-        updateInboxListUI(); 
-    } 
+function executeInboxSearch() {
+    const input = document.getElementById('inbox-search-input');
+    if (input) {
+        inboxSearchTerm = input.value.trim().toLowerCase();
+        showInboxSearching();
+        updateInboxListUI();
+    }
 }
 
 function executeInboxDateFilter() {
@@ -24,7 +25,33 @@ function executeInboxDateFilter() {
     const endInput = document.getElementById('inbox-end-date');
     if (startInput) inboxStartDate = startInput.value;
     if (endInput) inboxEndDate = endInput.value;
+    showInboxSearching();
     fetchTicketsWithDateRange();
+}
+
+function showInboxSearching() {
+    const statusEl = document.getElementById('inbox-search-status');
+    if (statusEl) {
+        statusEl.innerHTML = `<div class="flex items-center gap-2 text-blue-600"><div class="loader loader-blue"></div> <span class="font-bold text-sm">${t("กำลังค้นหา...")}</span></div>`;
+        statusEl.className = 'py-2 px-4 text-center';
+    }
+}
+
+function showInboxSearchResult(totalFiltered, totalAll) {
+    const statusEl = document.getElementById('inbox-search-status');
+    if (!statusEl) return;
+    const pct = totalAll > 0 ? Math.round((totalFiltered / totalAll) * 100) : 0;
+    statusEl.innerHTML = `
+        <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-circle-check text-green-500"></i>
+                <span class="font-bold text-sm text-gray-700">${t("ค้นหาสำเร็จ")} — ${t("พบ")} ${totalFiltered} ${t("รายการ")} (${pct}% ${t("ของทั้งหมด")} ${totalAll} ${t("รายการ")})</span>
+            </div>
+            <div class="flex-1 max-w-[200px] bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div class="bg-green-500 h-2 rounded-full transition-all duration-500" style="width:${pct}%"></div>
+            </div>
+        </div>`;
+    statusEl.className = 'py-2 px-4 bg-green-50 border border-green-200 rounded-lg';
 }
 
 function getInboxListHTML() {
@@ -111,7 +138,10 @@ function updateInboxListUI() {
 
     let pendingCount = baseTickets.filter(t => t.status === 'pending').length;
     let processedCount = baseTickets.filter(t => t.status !== 'pending').length;
-    
+    let totalFiltered = pendingCount + processedCount;
+    let totalAll = dbTickets.length;
+    showInboxSearchResult(totalFiltered, totalAll);
+
     const badgesContainer = document.getElementById('inbox-filter-badges');
     if (badgesContainer) {
         badgesContainer.innerHTML = `
@@ -156,6 +186,7 @@ function renderInboxView(container) {
                 <div id="inbox-filter-badges" class="flex bg-gray-100 p-1 rounded-lg w-full max-w-sm">
                     <!-- โหลดแท็บจากอัปเดตอัตโนมัติ -->
                 </div>
+                <div id="inbox-search-status" class="mt-2"></div>
             </div>
             <div id="inbox-ticket-list" class="flex-1 overflow-y-auto p-4 pt-2">
                 <!-- โหลดรายการจากอัปเดตอัตโนมัติ -->
