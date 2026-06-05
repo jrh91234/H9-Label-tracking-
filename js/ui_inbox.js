@@ -241,7 +241,8 @@ function renderTicketDetail(container) {
     let tck = selectedTicket;
     let statusColor = tck.status === 'pending' ? 'text-yellow-600' : tck.status === 'approved' ? 'text-green-600' : tck.status === 'defect' ? 'text-gray-600' : 'text-red-600';
     let canApprove = (currentUser.role === 'qc' || currentUser.role === 'admin' || currentUser.role === 'supervisor') && tck.status === 'pending';
-    let jobDisplay = tck.jobOrder.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${tck.jobOrder.replace('[TEST] ', '')}` : tck.jobOrder;
+    let jobStr = String(tck.jobOrder || '');
+    let jobDisplay = jobStr.includes('[TEST]') ? `<span class="text-yellow-600 font-bold bg-yellow-100 px-1 rounded mr-1">TEST</span> ${jobStr.replace('[TEST] ', '')}` : jobStr;
 
     container.innerHTML = `
         <div class="max-w-2xl mx-auto fade-in pb-20 p-4">
