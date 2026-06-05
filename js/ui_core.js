@@ -287,7 +287,7 @@ function showImageModal(imageUrl) {
 }
 
 function getDriveImageUrl(url, size = 'w800') {
-    if (!url) return 'https://via.placeholder.com/150';
+    if (!url) return 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22150%22 height=%22150%22><rect fill=%22%23e5e7eb%22 width=%22150%22 height=%22150%22/><text x=%2250%%22 y=%2250%%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2214%22>No Image</text></svg>';
     const match = url.match(/id=([a-zA-Z0-9_-]+)/) || url.match(/d\/([a-zA-Z0-9_-]+)/);
     if (match && match[1]) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=${size}`;
     return url;
@@ -401,8 +401,11 @@ function fetchTicketsWithDateRange() {
 }
 
 function fetchPeriodicData(forceRender = false) {
+    let ticketUrl = `${API_URL}?action=getTickets`;
+    if (typeof inboxStartDate !== 'undefined' && inboxStartDate) ticketUrl += `&startDate=${inboxStartDate}`;
+    if (typeof inboxEndDate !== 'undefined' && inboxEndDate) ticketUrl += `&endDate=${inboxEndDate}`;
     Promise.all([
-        fetch(`${API_URL}?action=getTickets`).then(res => res.json()).catch(() => null),
+        fetch(ticketUrl).then(res => res.json()).catch(() => null),
         fetch(`${API_URL}?action=getBatches`).then(res => res.json()).catch(() => null)
     ]).then(([ticketsData, batchesData]) => {
         let ticketsChanged = false; let batchesChanged = false;
