@@ -100,7 +100,7 @@ function getInboxListHTML() {
         html += `
             <div onclick="openTicket('${tck.id}')" class="bg-white rounded-xl shadow-sm p-3 border-l-4 ${tck.status === 'pending' ? 'border-yellow-500' : tck.status === 'approved' ? 'border-green-500' : tck.status === 'defect' ? 'border-gray-500' : 'border-red-500'} cursor-pointer hover:bg-gray-50 flex items-center gap-3 transition">
                 <div class="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200 shadow-inner">
-                    <img src="${getDriveImageUrl(tck.imageUrl)}" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/150'">
+                    <img src="${getDriveImageUrl(tck.imageUrl)}" class="w-full h-full object-cover" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22150%22 height=%22150%22><rect fill=%22%23e5e7eb%22 width=%22150%22 height=%22150%22/><text x=%2250%%22 y=%2250%%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2214%22>No Image</text></svg>'">
                 </div>
                 <div class="flex-1 overflow-hidden">
                     <div class="flex justify-between items-start">
@@ -261,7 +261,7 @@ function renderTicketDetail(container) {
                     <div class="absolute top-2 right-2 bg-black/50 text-white px-2 py-1 rounded text-xs backdrop-blur-sm pointer-events-none z-10">
                         <i class="fa-solid fa-magnifying-glass-plus"></i> ${t("ขยาย")}
                     </div>
-                    <img src="${getDriveImageUrl(tck.imageUrl)}" class="max-h-80 object-contain rounded border border-gray-700 pointer-events-none" onerror="this.src='https://via.placeholder.com/400x300?text=Image+Not+Found'">
+                    <img src="${getDriveImageUrl(tck.imageUrl)}" class="max-h-80 object-contain rounded border border-gray-700 pointer-events-none" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22300%22><rect fill=%22%23e5e7eb%22 width=%22400%22 height=%22300%22/><text x=%2250%%22 y=%2250%%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%239ca3af%22 font-size=%2216%22>Image Not Found</text></svg>'">
                 </div>
                 
                 <div class="p-5 space-y-4">
